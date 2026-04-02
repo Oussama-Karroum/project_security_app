@@ -1,190 +1,201 @@
 """
-Module: performance_page.py
-Role:   GUI page for AES vs RSA performance comparison with bar chart
-        Calls core.performance — zero crypto code here
+performance_page.py — AES vs RSA benchmark. All colors 6-char hex.
 """
 
 import customtkinter as ctk
 import threading
+
 from core.performance import PerformanceAnalyzer
+import gui.theme as T
+
+from gui.widgets import CIABadge, TerminalBox, SectionCard, StatusBar
 
 try:
     import matplotlib
     matplotlib.use("TkAgg")
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-    MATPLOTLIB_AVAILABLE = True
+    MPL = True
 except ImportError:
-    MATPLOTLIB_AVAILABLE = False
+    MPL = False
 
 
-class PerformancePage(ctk.CTkFrame):
-    """
-    Performance page — benchmark AES vs RSA, display results + bar chart.
+class PerformancePage(ctk.CTkScrollableFrame):
 
-    CIA Objective : (Transversal — illustrates why hybrid encryption is used)
-    """
-
-    INFO_TEXT = (
-        "⚡  COMPARAISON DES PERFORMANCES\n\n"
-        "Cette page compare les temps d'exécution de AES-256-CBC (symétrique) vs RSA-2048 (asymétrique).\n\n"
-        "• AES est optimisé pour le traitement de données volumineuses.\n"
-        "• RSA est mathématiquement coûteux — particulièrement pour la génération de clés.\n"
-        "• Résultat attendu : AES est plusieurs centaines de fois plus rapide que RSA.\n"
-        "• Conclusion pratique : On utilise RSA uniquement pour échanger la clé AES (chiffrement hybride)."
+    INFO = (
+        "Comparaison des performances : AES-256-CBC (symétrique) vs RSA-2048 (asymétrique).\n"
+        "Résultat typique : AES est ~300-500× plus rapide. La génération de clé RSA (multiplication "
+        "de grands premiers) est l'opération la plus coûteuse.\n"
+        "Conclusion : on utilise RSA uniquement pour l'échange de la clé AES — c'est le principe de TLS, PGP, SSH."
     )
 
     def __init__(self, parent):
-        super().__init__(parent, fg_color="transparent")
+        super().__init__(parent, fg_color=T.get("BG_DEEP"), scrollbar_button_color=T.get("BORDER"))
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.pa      = PerformanceAnalyzer()
+        self._res    = None
+        self._canvas = None
+        self._build()
 
-        self.analyzer = PerformanceAnalyzer()
-        self._results  = None
+    def _build(self):
+        self._header()
+        self._control_section()
+        self._results_section()
+        self._chart_section()
+        self._conclusion_section()
 
-        self._build_info_banner()
-        self._build_main()
+    def _header(self):
+        f = ctk.CTkFrame(self, fg_color=T.get("BG_CARD"), corner_radius=8,
+                         border_width=1, border_color=T.get("BORDER"))
+        f.grid(row=0, column=0, padx=14, pady=(14, 6), sticky="ew")
+        f.grid_columnconfigure(0, weight=1)
+        top = ctk.CTkFrame(f, fg_color="transparent")
+        top.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+        top.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(top, text="⚡  COMPARAISON DES PERFORMANCES",
+                     font=ctk.CTkFont(family="Courier", size=15, weight="bold"),
+                     text_color=T.get("CYAN")).grid(row=0, column=0, sticky="w")
+        CIABadge(top, ["C", "I", "A"]).grid(row=0, column=1, sticky="e")
+        ctk.CTkLabel(f, text=self.INFO, font=ctk.CTkFont(size=13),
+                     text_color=T.get("TEXT_DIM"), wraplength=820, justify="left",
+                     ).grid(row=1, column=0, padx=12, pady=(0, 10), sticky="w")
 
-    def _build_info_banner(self):
-        banner = ctk.CTkTextbox(self, height=120, wrap="word", font=ctk.CTkFont(size=12))
-        banner.insert("0.0", self.INFO_TEXT)
-        banner.configure(state="disabled")
-        banner.grid(row=0, column=0, padx=16, pady=(16, 6), sticky="ew")
+    def _control_section(self):
+        card = SectionCard(self, title="  ▶  Paramètres du Benchmark", accent=T.get("CYAN"))
+        card.grid(row=1, column=0, padx=14, pady=6, sticky="ew")
+        c = card.content
+        c.grid_columnconfigure(1, weight=1)
 
-    def _build_main(self):
-        main = ctk.CTkFrame(self, fg_color="transparent")
-        main.grid(row=1, column=0, padx=16, pady=(0,16), sticky="nsew")
-        main.grid_columnconfigure(0, weight=1)
-        main.grid_rowconfigure(2, weight=1)
+        ctk.CTkLabel(c, text="Message test :",
+                     font=ctk.CTkFont(family="Courier", size=11, weight="bold"),
+                     text_color=T.get("CYAN")).grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
+        self.msg_entry = ctk.CTkEntry(c, fg_color=T.get("BG_DEEP"), border_color=T.get("BORDER"), text_color=T.get("TEXT_CODE"))
+        self.msg_entry.insert(0, "Message de test benchmark cryptographique ENSAF 2024")
+        self.msg_entry.grid(row=0, column=1, padx=4, pady=6, sticky="ew")
 
-        # Controls
-        ctrl = ctk.CTkFrame(main)
-        ctrl.grid(row=0, column=0, pady=8, sticky="ew")
-        ctrl.grid_columnconfigure(2, weight=1)
-
-        ctk.CTkLabel(ctrl, text="Message de test :", font=ctk.CTkFont(weight="bold")).grid(
-            row=0, column=0, padx=10, pady=8, sticky="w")
-        self.test_msg = ctk.CTkEntry(ctrl, width=320,
-                                     placeholder_text="Texte utilisé pour le benchmark")
-        self.test_msg.insert(0, "Message de test pour benchmark cryptographique ENSAF 2024")
-        self.test_msg.grid(row=0, column=1, padx=8, pady=8, sticky="ew")
-
-        self.run_btn = ctk.CTkButton(ctrl, text="▶  Lancer le benchmark",
-                                     command=self._run_benchmark, height=36, width=180)
-        self.run_btn.grid(row=0, column=2, padx=8, pady=8)
-
-        self.bench_status = ctk.CTkLabel(ctrl, text="", font=ctk.CTkFont(size=12))
-        self.bench_status.grid(row=1, column=0, columnspan=3, padx=10, pady=(0,6), sticky="w")
-
-        # Results text
-        self.result_box = ctk.CTkTextbox(main, height=200,
-                                          font=ctk.CTkFont(family="Courier", size=12))
-        self.result_box.grid(row=1, column=0, pady=(0, 8), sticky="ew")
-        self.result_box.insert("0.0", "Les résultats s'afficheront ici après le benchmark.")
-        self.result_box.configure(state="disabled")
-
-        # Chart area
-        if MATPLOTLIB_AVAILABLE:
-            self.chart_frame = ctk.CTkFrame(main)
-            self.chart_frame.grid(row=2, column=0, sticky="nsew")
-            self.chart_frame.grid_columnconfigure(0, weight=1)
-            self.chart_frame.grid_rowconfigure(0, weight=1)
-            self._canvas = None
-        else:
-            ctk.CTkLabel(main, text="⚠️ matplotlib non installé — graphique indisponible.\n"
-                                     "Installez-le avec : pip install matplotlib",
-                         text_color="orange").grid(row=2, column=0, pady=20)
-
-    # ── Handlers ─────────────────────────────────────────────────────
-
-    def _run_benchmark(self):
-        self.run_btn.configure(state="disabled", text="⏳ Benchmark en cours...")
-        self._set_status(self.bench_status, "Calcul AES (100 itérations) + RSA (5 itérations)...", "orange")
-        self.update()
-        thread = threading.Thread(target=self._benchmark_thread, daemon=True)
-        thread.start()
-
-    def _benchmark_thread(self):
-        try:
-            text = self.test_msg.get().strip() or "benchmark test"
-            self._results = self.analyzer.full_comparison(text)
-            self.after(0, self._on_benchmark_done)
-        except Exception as e:
-            self.after(0, lambda: self._set_status(self.bench_status, f"❌ {e}", "red"))
-            self.after(0, lambda: self.run_btn.configure(state="normal", text="▶  Lancer le benchmark"))
-
-    def _on_benchmark_done(self):
-        r = self._results
-        report = self.analyzer.format_report(r)
-        self._set_textbox(self.result_box, report)
-        self._set_status(
-            self.bench_status,
-            f"✅ Benchmark terminé — AES est ~{r['speedup_factor']}x plus rapide que RSA.",
-            "green"
+        self.run_btn = ctk.CTkButton(
+            c, text="▶  Lancer le benchmark", width=210, height=36,
+            fg_color=T.get("CYAN_BG"), hover_color=T.get("CYAN_HOVER"),
+            text_color=T.get("CYAN"), border_width=1, border_color=T.get("CYAN_BORDER"),
+            command=self._run,
         )
+        self.run_btn.grid(row=1, column=0, columnspan=2, pady=8, sticky="w")
+        self.ctrl_status = StatusBar(c)
+        self.ctrl_status.grid(row=2, column=0, columnspan=2, pady=2, sticky="w")
+
+    def _results_section(self):
+        card = SectionCard(self, title="  📊  Résultats Numériques", accent=T.get("BLUE"))
+        card.grid(row=2, column=0, padx=14, pady=6, sticky="ew")
+        c = card.content
+        c.grid_columnconfigure(0, weight=1)
+        self.result_box = TerminalBox(c, height=200)
+        self.result_box.grid(row=0, column=0, pady=4, sticky="ew")
+        self.result_box.set_text("Les résultats s'afficheront ici après le benchmark.")
+
+    def _chart_section(self):
+        if not MPL: return
+        card = SectionCard(self, title="  📈  Graphique Comparatif", accent=T.get("PURPLE"))
+        card.grid(row=3, column=0, padx=14, pady=6, sticky="ew")
+        self._chart_parent = card.content
+        self._chart_parent.grid_columnconfigure(0, weight=1)
+
+    def _conclusion_section(self):
+        card = SectionCard(self, title="  🎓  Analyse Académique", accent=T.get("GREEN"))
+        card.grid(row=4, column=0, padx=14, pady=(6, 14), sticky="ew")
+        c = card.content
+        c.grid_columnconfigure(0, weight=1)
+        self.concl_box = TerminalBox(c, height=160)
+        self.concl_box.grid(row=0, column=0, pady=4, sticky="ew")
+        self.concl_box.set_text(
+            "L'analyse académique s'affichera après le benchmark.\n\n"
+            "Points couverts :\n"
+            "  • Pourquoi AES est plus rapide que RSA\n"
+            "  • Justification mathématique du coût RSA\n"
+            "  • Recommandation : chiffrement hybride")
+
+    # ── Run ───────────────────────────────────────────────────────────
+
+    def _run(self):
+        self.run_btn.configure(state="disabled", text="⏳ En cours...")
+        self.ctrl_status.set("AES : 100 itérations · RSA : 5 itérations...", "loading")
+        self.update()
+        threading.Thread(target=self._thread, daemon=True).start()
+
+    def _thread(self):
+        try:
+            text = self.msg_entry.get().strip() or "benchmark"
+            self._res = self.pa.full_comparison(text)
+            self.after(0, self._done)
+        except Exception as e:
+            self.after(0, lambda: self.ctrl_status.set(str(e), "error"))
+            self.after(0, lambda: self.run_btn.configure(
+                state="normal", text="▶  Lancer le benchmark"))
+
+    def _done(self):
+        r = self._res
+        self.result_box.set_text(self.pa.format_report(r))
+        self.ctrl_status.set(
+            f"Terminé — AES ~{r['speedup_factor']}× plus rapide que RSA.", "ok")
         self.run_btn.configure(state="normal", text="▶  Lancer le benchmark")
 
-        if MATPLOTLIB_AVAILABLE:
+        aes, rsa = r["aes"], r["rsa"]
+        concl = (
+            f"ANALYSE — AES-256-CBC vs RSA-2048\n{'─'*46}\n\n"
+            f"1. GÉNÉRATION DE CLÉ\n"
+            f"   AES : {aes['keygen_ms']:.4f} ms  vs  RSA : {rsa['keygen_ms']:.2f} ms\n"
+            f"   RSA génère deux nombres premiers de ~1024 bits chacun.\n"
+            f"   AES appelle os.urandom() — entropie OS, quasi-instantané.\n\n"
+            f"2. CHIFFREMENT\n"
+            f"   AES : {aes['encrypt_ms']:.4f} ms  vs  RSA : {rsa['encrypt_ms']:.4f} ms\n"
+            f"   AES opère sur des blocs de 128 bits avec XOR + substitutions.\n"
+            f"   RSA calcule ct = m^e mod n (exponentiation modulaire coûteuse).\n\n"
+            f"3. CONCLUSION\n"
+            f"   Facteur : AES ≈ {r['speedup_factor']}× plus rapide que RSA.\n"
+            f"   Solution : AES chiffre les données, RSA chiffre la clé AES.\n"
+            f"   C'est exactement le schéma TLS 1.3 utilisé dans HTTPS."
+        )
+        self.concl_box.set_text(concl)
+
+        if MPL:
             self._draw_chart()
 
     def _draw_chart(self):
-        """Draw a grouped bar chart comparing AES vs RSA timings."""
-        r   = self._results
+        r   = self._res
         aes = r["aes"]
         rsa = r["rsa"]
 
-        # Remove old canvas
         if self._canvas:
             self._canvas.get_tk_widget().destroy()
 
-        fig = Figure(figsize=(7, 3.2), dpi=96, facecolor="#1c1c1c")
-        ax  = fig.add_subplot(111, facecolor="#1c1c1c")
+        fig = Figure(figsize=(7.5, 3.4), dpi=96, facecolor=T.get("BG_DEEP"))
+        ax  = fig.add_subplot(111, facecolor=T.get("BG_CARD"))
 
-        categories  = ["Génération\nde clé", "Chiffrement", "Déchiffrement", "TOTAL"]
-        aes_values  = [aes["keygen_ms"], aes["encrypt_ms"], aes["decrypt_ms"], aes["total_ms"]]
-        rsa_values  = [rsa["keygen_ms"], rsa["encrypt_ms"], rsa["decrypt_ms"], rsa["total_ms"]]
+        cats = ["Génération\nde clé", "Chiffrement", "Déchiffrement", "TOTAL"]
+        av   = [aes["keygen_ms"], aes["encrypt_ms"], aes["decrypt_ms"], aes["total_ms"]]
+        rv   = [rsa["keygen_ms"], rsa["encrypt_ms"], rsa["decrypt_ms"], rsa["total_ms"]]
 
-        x     = range(len(categories))
-        width = 0.35
+        x, w = range(len(cats)), 0.35
+        b1 = ax.bar([i - w/2 for i in x], av, w, label="AES-256-CBC", color=T.get("BLUE"), alpha=0.88)
+        b2 = ax.bar([i + w/2 for i in x], rv, w, label="RSA-2048",    color=T.get("PURPLE"), alpha=0.88)
 
-        bars_aes = ax.bar([i - width/2 for i in x], aes_values, width,
-                          label="AES-256-CBC", color="#4fc3f7", alpha=0.9)
-        bars_rsa = ax.bar([i + width/2 for i in x], rsa_values, width,
-                          label="RSA-2048", color="#ef5350", alpha=0.9)
-
-        # Labels on bars
-        for bar in bars_aes:
-            h = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, h + 0.5,
-                    f"{h:.3f}", ha="center", va="bottom", fontsize=8, color="white")
-        for bar in bars_rsa:
-            h = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, h + 0.5,
-                    f"{h:.1f}", ha="center", va="bottom", fontsize=8, color="white")
+        for bar, vals in [(b1, av), (b2, rv)]:
+            for b, v in zip(bar, vals):
+                ax.text(b.get_x() + b.get_width()/2, b.get_height() + max(rv)*0.01,
+                        f"{v:.2f}", ha="center", va="bottom",
+                        fontsize=8, color="#e8f4fd", fontfamily="Courier")
 
         ax.set_xticks(list(x))
-        ax.set_xticklabels(categories, color="white", fontsize=10)
-        ax.set_ylabel("Temps (ms)", color="white")
-        ax.set_title(f"AES vs RSA — Facteur de vitesse : ×{r['speedup_factor']}",
-                     color="white", fontsize=12, fontweight="bold")
-        ax.tick_params(colors="white")
-        ax.spines[:].set_color("#444")
-        ax.legend(facecolor="#2a2a2a", labelcolor="white")
-        fig.tight_layout()
+        ax.set_xticklabels(cats, color=T.get("TEXT_DIM"), fontsize=9, fontfamily="Courier")
+        ax.set_ylabel("Temps (ms)", color=T.get("TEXT_DIM"), fontsize=12)
+        ax.set_title(f"AES-256-CBC vs RSA-2048  —  Facteur ×{r['speedup_factor']}",
+                     color=T.get("CYAN"), fontsize=12, fontweight="bold", fontfamily="Courier")
+        ax.tick_params(colors=T.get("TEXT_DIM"))
+        for spine in ax.spines.values():
+            spine.set_color(T.get("BORDER"))
+        ax.legend(facecolor=T.get("BG_CARD"), labelcolor=T.get("TEXT_DIM"), edgecolor=T.get("BORDER"), fontsize=12)
+        ax.set_facecolor(T.get("BG_CARD"))
+        fig.tight_layout(pad=1.5)
 
-        self._canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+        self._canvas = FigureCanvasTkAgg(fig, master=self._chart_parent)
         self._canvas.draw()
-        self._canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
-
-    # ── Helpers ──────────────────────────────────────────────────────
-
-    @staticmethod
-    def _set_textbox(widget, text):
-        widget.configure(state="normal")
-        widget.delete("0.0", "end")
-        widget.insert("0.0", text)
-        widget.configure(state="disabled")
-
-    @staticmethod
-    def _set_status(label, text, color):
-        label.configure(text=text, text_color=color)
+        self._canvas.get_tk_widget().grid(row=0, column=0, sticky="ew", pady=4)
