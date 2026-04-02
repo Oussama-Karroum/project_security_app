@@ -1,8 +1,3 @@
-"""
-integrity_page.py — SHA-256 live hash, avalanche demo, attack simulation.
-All colors are valid 6-char hex strings.
-"""
-
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
@@ -109,8 +104,9 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         bf = ctk.CTkFrame(c, fg_color="transparent")
         bf.grid(row=5, column=0, pady=4, sticky="w")
         _btn(bf, "# Hash texte",    self._hash_text,   T.get("TEAL_BG"), T.get("TEAL"), T.get("TEAL_BORDER"), T.get("TEAL_HOVER"), 130).pack(side="left", padx=3)
-        _btn(bf, "📂 Hash fichier", self._hash_file,   T.get("TEAL_BG"), T.get("TEAL"), T.get("TEAL_BORDER"), T.get("TEAL_HOVER"), 130).pack(side="left", padx=3)
-        _btn(bf, "📌 Mémoriser",    self._save_ref,    T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"),  T.get("CYAN_HOVER"), 110).pack(side="left", padx=3)
+        _btn(bf, "Hash fichier", self._hash_file,   T.get("TEAL_BG"), T.get("TEAL"), T.get("TEAL_BORDER"), T.get("TEAL_HOVER"), 130).pack(side="left", padx=3)
+        _btn(bf, "Mémoriser",    self._save_ref,    T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"),  T.get("CYAN_HOVER"), 110).pack(side="left", padx=3)
+        _btn(bf, "Effacer",    self._hash_clear,    T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"),  T.get("CYAN_HOVER"), 90).pack(side="left", padx=3)
 
         self.live_status = StatusBar(c)
         self.live_status.grid(row=6, column=0, pady=2, sticky="w")
@@ -144,19 +140,27 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         _btn(rf, "Utiliser mémorisé", self._use_ref, T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"), T.get("CYAN_HOVER"),
              130, 26).grid(row=0, column=2, padx=4)
 
-        _btn(c, "✅ Vérifier intégrité", self._verify,
+        _btn(c, "Vérifier intégrité", self._verify,
              T.get("GREEN_BG"), T.get("GREEN"), T.get("GREEN_BORDER"), T.get("GREEN_HOVER"), 180, 32
              ).grid(row=3, column=0, pady=6, sticky="w")
 
         self.verify_result = TerminalBox(c, height=80)
-        self.verify_result.grid(row=4, column=0, pady=4, sticky="ew")
+        verify_frame = ctk.CTkFrame(c, fg_color="transparent")
+        verify_frame.grid(row=4, column=0, pady=4, sticky="ew")
+        verify_frame.grid_columnconfigure(0, weight=1)
+        self.verify_result = TerminalBox(verify_frame, height=80)
+        self.verify_result.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(verify_frame, text="Copier", command=lambda: self.verify_result.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.verify_status = StatusBar(c)
         self.verify_status.grid(row=5, column=0, pady=2, sticky="w")
 
     # ── Avalanche section ─────────────────────────────────────────────
 
     def _avalanche_section(self):
-        card = SectionCard(self, title="  💥  Effet Avalanche — Démonstration",
+        card = SectionCard(self, title="  Effet Avalanche — Démonstration",
                            accent=T.get("AMBER"), cia_keys=["I"])
         card.grid(row=3, column=0, padx=14, pady=6, sticky="ew")
         c = card.content
@@ -176,7 +180,7 @@ class IntegrityPage(ctk.CTkScrollableFrame):
                                              border_color=T.get("RED_BORDER"), border_width=1)
         self.aval_modified.grid(row=1, column=1, padx=(4, 0), pady=4, sticky="ew")
 
-        _btn(c, "💥 Simuler altération", self._simulate_avalanche,
+        _btn(c, "Simuler altération", self._simulate_avalanche,
              T.get("AMBER_BG"), T.get("AMBER"), T.get("AMBER_BORDER"), T.get("AMBER_HOVER"), 180, 32
              ).grid(row=2, column=0, columnspan=2, pady=6, sticky="w")
 
@@ -185,31 +189,175 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         self.aval_canvas.grid(row=3, column=0, columnspan=2, pady=4, sticky="ew")
 
         self.aval_result = TerminalBox(c, height=90)
-        self.aval_result.grid(row=4, column=0, columnspan=2, pady=4, sticky="ew")
+        aval_frame = ctk.CTkFrame(c, fg_color="transparent")
+        aval_frame.grid(row=4, column=0, columnspan=2, pady=4, sticky="ew")
+        aval_frame.grid_columnconfigure(0, weight=1)
+        self.aval_result = TerminalBox(aval_frame, height=90)
+        self.aval_result.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(aval_frame, text="Copier", command=lambda: self.aval_result.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
 
     # ── Attack section ────────────────────────────────────────────────
 
     def _attack_section(self):
-        card = SectionCard(self, title="  🔴  SIMULATION D'ATTAQUE — Falsification de Hash",
+        card = SectionCard(self, title="  SIMULATION INTÉGRITÉ — Attaquant Hash",
                            accent=T.get("RED"), cia_keys=["I"])
         card.grid(row=4, column=0, padx=14, pady=(6, 14), sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
+
         ctk.CTkLabel(
             c,
-            text=("Scénario : un attaquant modifie un contrat (1 caractère).\n"
-                  "Résultat attendu : le hash SHA-256 change → la falsification est immédiatement détectée."),
+            text=("Ici vous jouez l'attaquant qui tente de modifier le message.\n"
+                  "Objectif : observer si la modification est détectée par SHA-256."),
             font=ctk.CTkFont(size=13), text_color=T.get("TEXT_DIM"), wraplength=760, justify="left",
         ).grid(row=0, column=0, pady=(0, 8), sticky="w")
 
-        _btn(c, "🔴 Lancer simulation", self._run_attack,
-             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), 180, 32
-             ).grid(row=1, column=0, pady=4, sticky="w")
+        ctk.CTkLabel(c, text="Message utilisateur :", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).grid(row=1, column=0, sticky="w")
+        self.sim_hash_input = ctk.CTkTextbox(c, height=60, fg_color=T.get("BG_DEEP"), border_color=T.get("BORDER"), border_width=1)
+        self.sim_hash_input.grid(row=2, column=0, pady=4, sticky="ew")
 
-        self.attack_log = TerminalBox(c, height=130)
-        self.attack_log.grid(row=2, column=0, pady=4, sticky="ew")
-        self.attack_status = StatusBar(c)
-        self.attack_status.grid(row=3, column=0, pady=2, sticky="w")
+        step_frame = ctk.CTkFrame(c, fg_color="transparent")
+        step_frame.grid(row=3, column=0, pady=4, sticky="w")
+        _btn(step_frame, "Étape 1 : Hash original", self._sim_hash_step1,
+             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), 190, 30).pack(side="left", padx=3)
+
+        attack_frame = ctk.CTkFrame(c, fg_color="transparent")
+        attack_frame.grid(row=4, column=0, pady=4, sticky="w")
+        ctk.CTkLabel(attack_frame, text="Attaque :", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).pack(side="left", padx=(0,4))
+        self.sim_hash_method = ctk.CTkOptionMenu(attack_frame, values=[
+            "Modification d'un caractère",
+            "Espace invisible",
+            "Changement de casse",
+            "Suppression d'un caractère",
+            "Collision impossible SHA-256",
+            "Length extension (concept)"
+        ],
+        width=210, fg_color=T.get("BG_HOVER"), button_color=T.get("RED_BORDER"), button_hover_color=T.get("RED_HOVER"),
+        text_color=T.get("TEXT_DIM"), font=ctk.CTkFont(size=12))
+        self.sim_hash_method.set("Modification d'un caractère")
+        self.sim_hash_method.pack(side="left", padx=3)
+
+        _btn(attack_frame, "Étape 2 : Attaquer", self._sim_hash_step2,
+             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), 130, 30).pack(side="left", padx=3)
+
+        _btn(attack_frame, "Nouvelle simulation", self._sim_hash_reset,
+             T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"), T.get("CYAN_HOVER"), 150, 30).pack(side="left", padx=3)
+
+        _btn(attack_frame, "Étape 3 : Vérifier", self._sim_hash_step3,
+             T.get("GREEN_BG"), T.get("GREEN"), T.get("GREEN_BORDER"), T.get("GREEN_HOVER"), 140, 30).pack(side="left", padx=3)
+
+        self.sim_hash_status = ctk.CTkLabel(c, text="Statut : prêt.", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM"))
+        self.sim_hash_status.grid(row=5, column=0, pady=(2,4), sticky="w")
+
+        self.hash_compare = TerminalBox(c, height=120)
+        self.hash_compare.grid(row=6, column=0, pady=4, sticky="ew")
+
+        self.hash_result = StatusBar(c)
+        self.hash_result.grid(row=7, column=0, pady=2, sticky="w")
+
+        self._sim_hash_reset()
+
+    def _set_hash_status(self, text, level="info"):
+        color = T.get("TEXT_DIM")
+        if level == "ok":
+            color = T.get("GREEN")
+        elif level == "error":
+            color = T.get("RED")
+        elif level == "warning":
+            color = T.get("AMBER")
+        self.sim_hash_status.configure(text=f"Statut : {text}", text_color=color)
+
+    def _sim_hash_reset(self):
+        self._sim_hash_status = 0
+        self._sim_hash_plain = ""
+        self._sim_hash_orig = ""
+        self._sim_hash_target = ""
+        self._sim_hash_step = 0
+        self.sim_hash_input.delete("0.0", "end")
+        self.hash_compare.clear()
+        self.hash_result.clear()
+        self._set_hash_status("Prêt pour nouvelle simulation.", "info")
+
+    def _sim_hash_step1(self):
+        msg = self.sim_hash_input.get("0.0", "end").strip()
+        if not msg:
+            self._set_hash_status("Message vide. Saisissez du texte.", "error")
+            return
+        self._sim_hash_plain = msg
+        self._sim_hash_orig = self.hm.hash_text(msg)
+        self._sim_hash_step = 1
+        self.hash_compare.set_text(
+            f"Hash original : {self._sim_hash_orig}\n"
+            "(Étape 1 terminée : hash calculé)")
+        self._set_hash_status("Étape 1 terminée, choisissez une attaque.", "ok")
+
+    def _sim_hash_step2(self):
+        if self._sim_hash_step < 1:
+            self._set_hash_status("Faites d'abord l'étape 1.", "warning")
+            return
+        choice = self.sim_hash_method.get()
+        base = self._sim_hash_plain
+        if choice == "Modification d'un caractère":
+            if not base:
+                self._set_hash_status("Message vide.", "error"); return
+            self._sim_hash_target = base[:-1] + ("X" if not base.endswith("X") else "Y")
+            explanation = "Un caractère change → hash totalement différent."
+        elif choice == "Espace invisible":
+            self._sim_hash_target = base + "\u200b"
+            explanation = "Un caractère invisible ajouté → hash différent, invisible à l'oeil."
+        elif choice == "Changement de casse":
+            self._sim_hash_target = base.swapcase()
+            explanation = "Casse modifiée en un seul caractère → hash différent."
+        elif choice == "Suppression d'un caractère":
+            self._sim_hash_target = base[:-1] if len(base) > 1 else ""
+            explanation = "Suppression d'un caractère → hash différent."
+        elif choice == "Collision impossible SHA-256":
+            self._sim_hash_target = self._sim_hash_plain
+            explanation = "SHA-256 est conçu sans collisions pratiques. Ce truc est théorique."
+        elif choice == "Length extension (concept)":
+            self._sim_hash_target = self._sim_hash_plain + "added"
+            explanation = "SHA-256 sécurisé ne permet pas d'attaque de length extension sans clé secret."
+        else:
+            self._set_hash_status("Attaque inconnue.", "error"); return
+
+        self._sim_hash_step = 2
+        self.hash_compare.set_text(
+            f"Hash ciblé ({choice}) : {self.hm.hash_text(self._sim_hash_target)}\n"
+            f"Message modifié : {repr(self._sim_hash_target)}\n"
+            f"Explication : {explanation}")
+        self._set_hash_status("Étape 2 terminée, validez à l'étape 3.", "ok")
+
+    def _sim_hash_step3(self):
+        if self._sim_hash_step < 2:
+            self._set_hash_status("Exécutez les étapes 1 et 2 d'abord.", "warning")
+            return
+        hash2 = self.hm.hash_text(self._sim_hash_target)
+        equivalence = self._sim_hash_orig == hash2
+        same_text = self._sim_hash_plain == self._sim_hash_target
+
+        if equivalence and not same_text:
+            badge = "🟢 NON DÉTECTÉ (danger)"
+            level = "warning"
+            logic = "Même hash pour deux messages différents : collision (très improbable SHA-256)."
+        elif equivalence and same_text:
+            badge = "🟢 IDENTIQUE (même contenu)"
+            level = "ok"
+            logic = "Le message n'a pas changé."
+        else:
+            badge = "🔴 DÉTECTÉ"
+            level = "ok"
+            logic = "Le hash est différent, modification détectée (effet avalanche)."
+
+        diff = sum(a != b for a, b in zip(self._sim_hash_orig, hash2)) + abs(len(self._sim_hash_orig) - len(hash2))
+        self.hash_result.set(f"{badge} • Différence octets : {diff}")
+        self.hash_compare.set_text(
+            f"Hash original : {self._sim_hash_orig}\n"
+            f"Hash modifié  : {hash2}\n"
+            f"{logic}")
+        self._set_hash_status("Étape 3 terminée.", level)
 
     # ── Live hash ─────────────────────────────────────────────────────
 
@@ -277,6 +425,12 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         else:
             self.live_status.set("Calculez d'abord un hash.", "warning")
 
+    def _hash_clear(self):
+        self.live_input.delete("0.0", "end")
+        self.live_hash_lbl.configure(text="")
+        self.live_len_lbl.configure(text="")
+        self.live_status.clear()
+
     def _use_ref(self):
         if self._ref_hash:
             self.verify_ref.delete(0, "end")
@@ -333,38 +487,5 @@ class IntegrityPage(ctk.CTkScrollableFrame):
             color = T.get("RED_MED") if changed else T.get("GREEN_BG")
             cv.create_rectangle(i * cw, 3, i * cw + cw - 1, 23, fill=color, outline="")
 
-    # ── Attack ────────────────────────────────────────────────────────
+    # (Ancienne simulation remplacée par le flux interactif ci-dessus.)
 
-    def _run_attack(self):
-        self.attack_log.clear()
-        self.attack_status.set("Simulation en cours...", "loading"); self.update()
-        threading.Thread(target=self._attack_thread, daemon=True).start()
-
-    def _attack_thread(self):
-        orig = "Contrat signé : virement de 10 000 MAD vers compte A."
-        tamp = "Contrat signé : virement de 99 999 MAD vers compte B."
-        h1   = self.hm.hash_text(orig)
-        time.sleep(0.3)
-        h2   = self.hm.hash_text(tamp)
-        time.sleep(0.3)
-        match = self.hm.verify_text_integrity(tamp, h1)
-
-        lines = [
-            "─" * 60, "  SIMULATION : Falsification de contrat", "─" * 60,
-            f"\n[ÉMETTEUR] Message original :\n  {orig}",
-            f"\n[ÉMETTEUR] Hash SHA-256 :\n  {h1}",
-            f"\n[ATTAQUANT] Contenu falsifié :\n  {tamp}",
-            f"\n[ATTAQUANT] Nouveau hash :\n  {h2}",
-            "\n[DESTINATAIRE] Vérification...",
-            f"[DESTINATAIRE] {'HASH VALIDE (inattendu)' if match else '❌ HASH INVALIDE — FALSIFICATION DÉTECTÉE !'}",
-        ]
-        if not match:
-            lines += ["", "✅ SHA-256 PROTÈGE CONTRE LA FALSIFICATION",
-                      "   Un seul caractère modifié → condensé totalement différent."]
-        lines.append("\n" + "─" * 60)
-        self.after(0, lambda: self.attack_log.set_text("\n".join(lines)))
-        self.after(0, lambda: self.attack_status.set(
-            "Falsification détectée par SHA-256.", "ok"))
-
-
-# Import needed for avalanche bar T.get("RED_MED")

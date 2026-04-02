@@ -1,10 +1,3 @@
-"""
-theme.py — Dual-mode color palette.
-All values are valid 6-char hex (Tkinter-safe).
-Dark mode  : deep blacks, cyan/green terminal aesthetic.
-Light mode : warm whites, muted blues, easy on the eyes.
-"""
-
 # ───────────────────────── DARK MODE ──────────────────────────────────
 DARK = {
     # backgrounds

@@ -1,14 +1,3 @@
-"""
-widgets.py — Shared UI components.
-Fixes:
-  - Tooltip: removed FocusOut auto-close (was firing instantly).
-    Popup stays open until user clicks [X] or clicks button again.
-  - Removed duplicate label bug.
-  - Fonts enlarged throughout.
-  - No emojis.
-  - Theme-aware: reads from gui.theme at call time.
-"""
-
 import customtkinter as ctk
 import tkinter as tk
 import gui.theme as T
@@ -207,6 +196,12 @@ class TerminalBox(ctk.CTkTextbox):
         self.configure(state="normal")
         self.delete("0.0", "end")
         self.configure(state="disabled")
+
+    def copy_to_clipboard(self):
+        text = self.get("0.0", "end").strip()
+        if text:
+            self.clipboard_clear()
+            self.clipboard_append(text)
 
 
 # ── Section Card ──────────────────────────────────────────────────────

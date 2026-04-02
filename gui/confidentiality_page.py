@@ -1,9 +1,3 @@
-"""
-confidentiality_page.py — AES + RSA + Hybrid with attack simulation,
-key import/export, hybrid step animation, CIA badges, tooltips.
-All colors are valid 6-char hex strings.
-"""
-
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
@@ -62,7 +56,7 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         top = ctk.CTkFrame(f, fg_color="transparent")
         top.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
         top.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(top, text="🔒  CONFIDENTIALITÉ",
+        ctk.CTkLabel(top, text="CONFIDENTIALITÉ",
                      font=ctk.CTkFont(family="Courier", size=15, weight="bold"),
                      text_color=T.get("CYAN")).grid(row=0, column=0, sticky="w")
         CIABadge(top, ["C"]).grid(row=0, column=1, sticky="e")
@@ -107,16 +101,21 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
 
         abf = ctk.CTkFrame(c, fg_color="transparent")
         abf.grid(row=2, column=0, columnspan=3, pady=4, sticky="w")
-        for txt, cmd in [("🔒 Chiffrer", self._aes_enc), ("🔓 Déchiffrer", self._aes_dec),
-                          ("📂 Chiffrer fichier", self._aes_enc_file),
-                          ("📂 Déchiffrer fichier", self._aes_dec_file)]:
+        for txt, cmd in [("Chiffrer", self._aes_enc), ("Déchiffrer", self._aes_dec),
+                          ("Chiffrer fichier", self._aes_enc_file),
+                          ("Déchiffrer fichier", self._aes_dec_file),
+                          ("Effacer", self._aes_clear)]:
             _btn(abf, txt, cmd, T.get("BLUE_BG"), T.get("BLUE"), T.get("BLUE_BORDER"), T.get("BLUE_HOVER"),
                  width=148, height=30).pack(side="left", padx=3)
 
         ctk.CTkLabel(c, text="Résultat :", font=ctk.CTkFont(size=13),
                      text_color=T.get("TEXT_DIM")).grid(row=3, column=0, padx=(0, 6), pady=(6, 0), sticky="nw")
         self.aes_output = TerminalBox(c, height=55)
-        self.aes_output.grid(row=3, column=1, columnspan=2, padx=4, pady=4, sticky="ew")
+        self.aes_output.grid(row=3, column=1, padx=4, pady=4, sticky="ew")
+        copy_btn = ctk.CTkButton(c, text="Copier", command=lambda: self.aes_output.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=3, column=2, padx=4, pady=4, sticky="w")
         self.aes_status = StatusBar(c)
         self.aes_status.grid(row=4, column=0, columnspan=3, pady=3, sticky="w")
 
@@ -131,9 +130,9 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
 
         kbf = ctk.CTkFrame(c, fg_color="transparent")
         kbf.grid(row=0, column=0, pady=4, sticky="ew")
-        for txt, cmd in [("🔑 Générer RSA-2048", self._rsa_gen),
-                          ("⬆ Importer clé privée", self._rsa_import_priv),
-                          ("💾 Exporter clés", self._rsa_export)]:
+        for txt, cmd in [("Générer RSA-2048", self._rsa_gen),
+                          ("Importer clé privée", self._rsa_import_priv),
+                          ("Exporter clés", self._rsa_export)]:
             _btn(kbf, txt, cmd, T.get("PURPLE_BG"), T.get("PURPLE"), T.get("PURPLE_BORDER"), T.get("PURPLE_HOVER"),
                  width=170, height=30).pack(side="left", padx=3)
         ToolTipButton(kbf, "RSA").pack(side="left", padx=4)
@@ -151,15 +150,23 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
 
         rbf = ctk.CTkFrame(c, fg_color="transparent")
         rbf.grid(row=4, column=0, pady=4, sticky="w")
-        for txt, cmd in [("🔒 Chiffrer RSA", self._rsa_enc),
-                          ("🔓 Déchiffrer RSA", self._rsa_dec)]:
+        for txt, cmd in [("Chiffrer RSA", self._rsa_enc),
+                          ("Déchiffrer RSA", self._rsa_dec),
+                          ("Effacer", self._rsa_clear)]:
             _btn(rbf, txt, cmd, T.get("PURPLE_BG"), T.get("PURPLE"), T.get("PURPLE_BORDER"), T.get("PURPLE_HOVER"),
                  width=160, height=30).pack(side="left", padx=3)
 
         ctk.CTkLabel(c, text="Résultat :", font=ctk.CTkFont(size=13),
                      text_color=T.get("TEXT_DIM")).grid(row=5, column=0, pady=(6, 0), sticky="w")
-        self.rsa_output = TerminalBox(c, height=55)
-        self.rsa_output.grid(row=6, column=0, pady=4, sticky="ew")
+        rsa_out_frame = ctk.CTkFrame(c, fg_color="transparent")
+        rsa_out_frame.grid(row=6, column=0, pady=4, sticky="ew")
+        rsa_out_frame.grid_columnconfigure(0, weight=1)
+        self.rsa_output = TerminalBox(rsa_out_frame, height=55)
+        self.rsa_output.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(rsa_out_frame, text="Copier", command=lambda: self.rsa_output.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.rsa_status = StatusBar(c)
         self.rsa_status.grid(row=7, column=0, pady=2, sticky="w")
 
@@ -194,43 +201,114 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
 
         hbf = ctk.CTkFrame(c, fg_color="transparent")
         hbf.grid(row=4, column=0, pady=4, sticky="w")
-        _btn(hbf, "🔒 Chiffrement hybride", self._hybrid_enc_action,
+        _btn(hbf, "Chiffrement hybride", self._hybrid_enc_action,
              T.get("CYAN_BG"), T.get("CYAN"), T.get("CYAN_BORDER"), T.get("CYAN_HOVER"), width=180).pack(side="left", padx=3)
-        _btn(hbf, "🔓 Déchiffrement hybride", self._hybrid_dec_action,
+        _btn(hbf, "Déchiffrement hybride", self._hybrid_dec_action,
              T.get("CYAN_BG"), T.get("CYAN"), T.get("CYAN_BORDER"), T.get("CYAN_HOVER"), width=180).pack(side="left", padx=3)
-        _btn(hbf, "▶ Animer", self._animate_hybrid,
+        _btn(hbf, "Animer", self._animate_hybrid,
              T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"), T.get("CYAN_HOVER"), width=90).pack(side="left", padx=3)
+        _btn(hbf, "Effacer", self._hybrid_clear,
+             T.get("CYAN_BG"), T.get("CYAN"), T.get("CYAN_BORDER"), T.get("CYAN_HOVER"), width=90).pack(side="left", padx=3)
 
         self.hybrid_output = TerminalBox(c, height=80)
-        self.hybrid_output.grid(row=5, column=0, pady=4, sticky="ew")
+        hybrid_out_frame = ctk.CTkFrame(c, fg_color="transparent")
+        hybrid_out_frame.grid(row=5, column=0, pady=4, sticky="ew")
+        hybrid_out_frame.grid_columnconfigure(0, weight=1)
+        self.hybrid_output = TerminalBox(hybrid_out_frame, height=80)
+        self.hybrid_output.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(hybrid_out_frame, text="Copier", command=lambda: self.hybrid_output.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.hybrid_status = StatusBar(c)
         self.hybrid_status.grid(row=6, column=0, pady=2, sticky="w")
 
     # ── Attack Section ────────────────────────────────────────────────
 
     def _attack_section(self):
-        card = SectionCard(self, title="  🔴  SIMULATION D'ATTAQUE — Mauvaise Clé",
+        card = SectionCard(self, title="  SIMULATION D'ATTAQUE INTERACTIVE",
                            accent=T.get("RED"), cia_keys=["C"])
         card.grid(row=4, column=0, padx=14, pady=(6, 14), sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
+
         ctk.CTkLabel(
             c,
-            text=("Que se passe-t-il quand un attaquant utilise la mauvaise clé AES ?\n"
-                  "Cette simulation chiffre un message avec la clé correcte, "
-                  "puis tente de le déchiffrer avec une clé aléatoire différente."),
-            font=ctk.CTkFont(size=13), text_color=T.get("TEXT_DIM"),
-            wraplength=760, justify="left",
+            text=("Jouez le rôle de l'attaquant.\n"
+                  "Étape 1 : chiffrement (interception).\n"
+                  "Étape 2 : choisir l'attaque.\n"
+                  "Étape 3 : déchiffrement et verdict."),
+            font=ctk.CTkFont(size=13), text_color=T.get("TEXT_DIM"), wraplength=760, justify="left",
         ).grid(row=0, column=0, pady=(0, 8), sticky="w")
 
-        _btn(c, "🔴 Lancer simulation d'attaque", self._run_attack,
-             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), width=220, height=34
-             ).grid(row=1, column=0, pady=4, sticky="w")
+        ctk.CTkLabel(c, text="Message clair (chiffré par le destinataire) :",
+                     font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).grid(row=1, column=0, pady=(0, 4), sticky="w")
+        self.sim_msg = ctk.CTkTextbox(c, height=60, fg_color=T.get("BG_DEEP"), border_color=T.get("BORDER"), border_width=1)
+        self.sim_msg.grid(row=2, column=0, pady=4, sticky="ew")
 
-        self.attack_log = TerminalBox(c, height=130)
-        self.attack_log.grid(row=2, column=0, pady=4, sticky="ew")
+        step1_frame = ctk.CTkFrame(c, fg_color="transparent")
+        step1_frame.grid(row=3, column=0, pady=4, sticky="w")
+        _btn(step1_frame, "Étape 1 : Chiffrer (interception)", self._sim_step1,
+             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), width=220, height=34).pack(side="left", padx=3)
+
+        attack_frame = ctk.CTkFrame(c, fg_color="transparent")
+        attack_frame.grid(row=4, column=0, pady=4, sticky="w")
+
+        ctk.CTkLabel(attack_frame, text="Type d'attaque :", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).pack(side="left", padx=(0,4))
+        self.sim_attack_menu = ctk.CTkOptionMenu(attack_frame,
+            values=[
+                "Mauvaise clé (1 bit)",
+                "Corruption ciphertext",
+                "Replay",
+                "IV reuse (même IV)",
+                "Bit flipping"
+            ],
+            width=180,
+            fg_color=T.get("BG_HOVER"),
+            button_color=T.get("RED_BORDER"),
+            button_hover_color=T.get("RED_HOVER"),
+            text_color=T.get("TEXT_DIM"),
+            font=ctk.CTkFont(size=12),
+        )
+        self.sim_attack_menu.set("Mauvaise clé (1 bit)")
+        self.sim_attack_menu.pack(side="left", padx=3)
+
+        ToolTipButton(attack_frame, "Attaque",
+                      custom_text=("Mauvaise clé : décryptage avec clé incorrecte.\n"
+                                   "Corruption : ciphertext altéré, décryptage incorrect.\n"
+                                   "Replay : réutilisation d'un ciphertext valide.\n"
+                                   "IV reuse : revente du même IV (faillite du non-répétabilité).\n"
+                                   "Bit flipping : altère le message de façon ciblée." )
+                      ).pack(side="left", padx=8)
+
+        _btn(attack_frame, "Étape 2 : Lancer l'attaque", self._sim_step2,
+             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), width=220, height=34).pack(side="left", padx=3)
+
+        action_frame = ctk.CTkFrame(c, fg_color="transparent")
+        action_frame.grid(row=5, column=0, pady=4, sticky="w")
+        _btn(action_frame, "Étape 3 : Déchiffrer après attaque", self._sim_step3,
+             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), width=220, height=34).pack(side="left", padx=3)
+        _btn(action_frame, "Réinitialiser simulation", self._sim_reset,
+             T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"), T.get("CYAN_HOVER"), width=180, height=34).pack(side="left", padx=3)
+
+        self.sim_info = ctk.CTkLabel(c, text="Statut : en attente...", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM"))
+        self.sim_info.grid(row=6, column=0, pady=(0, 4), sticky="w")
+
+        ctk.CTkLabel(c, text="Résultat de la simulation :", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).grid(row=7, column=0, pady=(0, 0), sticky="w")
+        log_frame = ctk.CTkFrame(c, fg_color="transparent")
+        log_frame.grid(row=8, column=0, pady=4, sticky="ew")
+        log_frame.grid_columnconfigure(0, weight=1)
+
+        self.attack_log = TerminalBox(log_frame, height=140)
+        self.attack_log.grid(row=0, column=0, pady=0, sticky="ew")
+        ctk.CTkButton(log_frame, text="Copier", command=lambda: self.attack_log.copy_to_clipboard(),
+                      width=80, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                      text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER")).grid(row=0, column=1, padx=(6,0), sticky="e")
+
         self.attack_status = StatusBar(c)
-        self.attack_status.grid(row=3, column=0, pady=2, sticky="w")
+        self.attack_status.grid(row=9, column=0, pady=2, sticky="w")
+
+        self._sim_reset()
 
     # ── Hybrid canvas ─────────────────────────────────────────────────
 
@@ -349,6 +427,11 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         except Exception as e:
             self.aes_status.set(str(e), "error")
 
+    def _aes_clear(self):
+        self.aes_input.delete("0.0", "end")
+        self.aes_output.clear()
+        self.aes_status.clear()
+
     # ── RSA handlers ──────────────────────────────────────────────────
 
     def _rsa_gen(self):
@@ -396,6 +479,11 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         except Exception as e:
             self.rsa_status.set(str(e), "error")
 
+    def _rsa_clear(self):
+        self.rsa_input.delete("0.0", "end")
+        self.rsa_output.clear()
+        self.rsa_status.clear()
+
     # ── Hybrid handlers ───────────────────────────────────────────────
 
     def _hybrid_enc_action(self):
@@ -425,50 +513,158 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         except Exception as e:
             self.hybrid_status.set(str(e), "error")
 
-    # ── Attack simulation ─────────────────────────────────────────────
+    def _hybrid_clear(self):
+        self.hybrid_input.delete("0.0", "end")
+        self.hybrid_output.clear()
+        self.hybrid_status.clear()
+        self._hybrid_enc = None
 
-    def _run_attack(self):
+    # ── Attack simulation / interactive flow ───────────────────────────
+
+    def _set_sim_info(self, text, level="info"):
+        color = T.get("TEXT_DIM")
+        if level == "ok":
+            color = T.get("GREEN")
+        elif level == "error":
+            color = T.get("RED")
+        elif level == "warning":
+            color = T.get("AMBER")
+        self.sim_info.configure(text=f"Statut : {text}", text_color=color)
+
+    def _sim_reset(self):
+        self._sim_step = 0
+        self._sim_plain = ""
+        self._sim_key = None
+        self._sim_cipher = None
+        self._sim_cipher_attacked = None
+        self._sim_attack_mode = None
+        self._sim_attacker_key = None
+        self.sim_msg.delete("0.0", "end")
         self.attack_log.clear()
-        self.attack_status.set("Simulation en cours...", "loading"); self.update()
-        threading.Thread(target=self._attack_thread, daemon=True).start()
+        self.sim_info.configure(text="Statut : en attente...", text_color=T.get("TEXT_DIM"))
+        self.attack_status.clear()
 
-    def _attack_thread(self):
-        msg = "Message confidentiel — ENSAF Cryptographie 2024"
-        correct = self.sym.generate_key()
-        wrong   = self.sym.generate_key()
-        ct      = self.sym.encrypt_text(msg, correct)
-        time.sleep(0.2)
-
-        lines = [
-            "─" * 56,
-            "  SIMULATION : Attaque par mauvaise clé AES-256",
-            "─" * 56,
-            f"\n[1] Message         : {msg}",
-            f"[2] Clé correcte    : {correct.hex()[:24]}...",
-            f"[3] Mauvaise clé    : {wrong.hex()[:24]}...",
-            f"[4] Ciphertext      : {ct.hex()[:32]}...",
-            "\n[5] Tentative avec la MAUVAISE clé...",
-        ]
-        time.sleep(0.3)
-
+    def _sim_step1(self):
         try:
-            self.sym.decrypt_text(ct, wrong)
-            lines.append("[6] Résultat inattendu : déchiffrement accepté")
+            self._sim_plain = self.sim_msg.get("0.0", "end").strip()
+            if not self._sim_plain:
+                raise ValueError("Saisissez un message clair avant de lancer l'étape 1.")
+
+            self._sim_key = self.sym.generate_key()
+            self._sim_cipher = self.sym.encrypt_text(self._sim_plain, self._sim_key)
+            self._sim_step = 1
+            self._sim_attack_mode = None
+            self.attack_log.set_text(
+                "[Étape 1] Texte chiffré (interception)\n"
+                f"Message : {self._sim_plain}\n"
+                f"Clé AES (correcte) : {self._sim_key.hex()}\n"
+                f"Ciphertext (IV+CT) : {self._sim_cipher.hex()}"
+            )
+            self._set_sim_info("Étape 1 terminée, choisir une attaque.", "ok")
+            self.attack_status.set("Chiffrement effectué. Choisissez une attaque.", "info")
         except Exception as e:
-            lines += [
-                f"[6] RÉSULTAT  : ÉCHEC — {e}",
-                "",
-                "SÉCURITÉ CONFIRMÉE",
-                "  AES-CBC avec la mauvaise clé produit une erreur",
-                "  de dépadding. L'attaquant NE PEUT PAS récupérer",
-                "  le message sans la clé correcte.",
-            ]
+            self._set_sim_info(str(e), "error")
+            self.attack_status.set(str(e), "error")
 
-        time.sleep(0.3)
-        pt = self.sym.decrypt_text(ct, correct)
-        lines += [f"\n[7] Déchiffrement correct : {pt}", "\n" + "─" * 56]
+    def _sim_step2(self):
+        try:
+            if self._sim_step < 1 or not self._sim_cipher:
+                raise ValueError("Exécutez d'abord l'étape 1 pour générer ciphertext et clé.")
 
-        text = "\n".join(lines)
-        self.after(0, lambda: self.attack_log.set_text(text))
-        self.after(0, lambda: self.attack_status.set(
-            "Simulation terminée — mauvaise clé correctement rejetée.", "ok"))
+            mode = self.sim_attack_menu.get()
+            self._sim_attack_mode = mode
+
+            if mode == "Mauvaise clé (1 bit)":
+                self._sim_attacker_key = bytes([b ^ 0x01 if i == 0 else b for i, b in enumerate(self._sim_key)])
+                self._sim_cipher_attacked = self._sim_cipher
+                explanation = "L'attaquant essaie une clé quasiment correcte (1 bit inversé)."
+            elif mode == "Corruption ciphertext":
+                bad = bytearray(self._sim_cipher)
+                if len(bad) <= self.sym.IV_SIZE:
+                    raise ValueError("Ciphertext trop court à corrompre.")
+                bad[self.sym.IV_SIZE] ^= 0x01
+                self._sim_cipher_attacked = bytes(bad)
+                self._sim_attacker_key = self._sim_key
+                explanation = "Le ciphertext est modifié (corruption d'un octet)."
+            elif mode == "Replay":
+                self._sim_cipher_attacked = self._sim_cipher
+                self._sim_attacker_key = self._sim_key
+                explanation = "Le même ciphertext est rejoué. Rètement valable si clé+IV identiques." 
+            elif mode == "IV reuse (même IV)":
+                iv = self._sim_cipher[:self.sym.IV_SIZE]
+                plain = self._sim_plain.encode("utf-8")
+                padded = self.sym._pad(plain)
+                cipher = self.sym._build_cipher(self._sim_key, iv)
+                encryptor = cipher.encryptor()
+                reenc = encryptor.update(padded) + encryptor.finalize()
+                self._sim_cipher_attacked = iv + reenc
+                self._sim_attacker_key = self._sim_key
+                explanation = "Même IV réutilisé pour le même message (même clé) : pattern structurel peut fuir." 
+            elif mode == "Bit flipping":
+                bad = bytearray(self._sim_cipher)
+                if len(bad) <= self.sym.IV_SIZE:
+                    raise ValueError("Ciphertext trop court à manipuler.")
+                bad[self.sym.IV_SIZE + 1] ^= 0x01
+                self._sim_cipher_attacked = bytes(bad)
+                self._sim_attacker_key = self._sim_key
+                explanation = "Bit flipping dans le bloc 2 : il push la corruption locale du plaintext." 
+            else:
+                raise ValueError("Type d'attaque non supporté.")
+
+            self._sim_step = 2
+            self.attack_log.set_text(
+                f"[Étape 2] {mode}\n"
+                f"Explication : {explanation}\n"
+                f"Ciphertext après attaque : {self._sim_cipher_attacked.hex()}"
+            )
+            self._set_sim_info("Étape 2 terminée, passez à l'étape 3.", "ok")
+            self.attack_status.set("Attaque préparée.", "info")
+        except Exception as e:
+            self._set_sim_info(str(e), "error")
+            self.attack_status.set(str(e), "error")
+
+    def _sim_step3(self):
+        try:
+            if self._sim_step < 2:
+                raise ValueError("Exécutez d'abord l'étape 2 avant de déchiffrer.")
+
+            mode = self._sim_attack_mode
+            ct = self._sim_cipher_attacked
+
+            if mode == "Mauvaise clé (1 bit)":
+                key = self._sim_attacker_key
+                attacker = "attaquant"
+            else:
+                key = self._sim_key
+                attacker = "destinataire (clé correcte)"
+
+            try:
+                decrypted = self.sym.decrypt_text(ct, key)
+                result_status = "✅ Succès de déchiffrement"
+                explanation = "Le message a été déchiffré avec la clé utilisée."
+                ok = True
+            except Exception as e:
+                result_status = "❌ Échec de déchiffrement"
+                decrypted = f"Erreur : {e}"
+                explanation = "Le déchiffrement a échoué (clé incorrecte ou ciphertext corrompu)."
+                ok = False
+
+            self.attack_log.set_text(
+                f"[Étape 3] Déchiffrement par {attacker} ({mode})\n"
+                f"{result_status}\n"
+                f"Résultat : {decrypted}\n"
+                f"Explication : {explanation}"
+            )
+
+            if ok:
+                self._set_sim_info("Simulation terminée : message récupéré (ou wording de la faille).", "ok")
+                self.attack_status.set("✅ Attaque produit du texte lisible.", "ok")
+            else:
+                self._set_sim_info("Simulation terminée : attaque bloquée.", "warning")
+                self.attack_status.set("❌ Attaque échouée, sécurité maintenue.", "warning")
+
+            self._sim_step = 3
+        except Exception as e:
+            self._set_sim_info(str(e), "error")
+            self.attack_status.set(str(e), "error")
+

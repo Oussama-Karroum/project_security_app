@@ -1,11 +1,3 @@
-"""
-main_window.py — Root window.
-- Dark / Light theme switch that actually works (rebuilds pages).
-- Bigger fonts throughout.
-- Wider scrollbar on content pages.
-- No emojis, no school/professor name.
-"""
-
 import customtkinter as ctk
 import gui.theme as T
 

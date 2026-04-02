@@ -1,7 +1,3 @@
-"""
-certificate_page.py — X.509 self-signed certificate. All colors 6-char hex.
-"""
-
 import customtkinter as ctk
 from tkinter import filedialog
 
@@ -99,23 +95,39 @@ class CertificatePage(ctk.CTkScrollableFrame):
         self.gen_status.grid(row=len(fields)+1, column=0, columnspan=2, pady=4, sticky="w")
 
     def _inspect_section(self):
-        card = SectionCard(self, title="  🔍  Informations du Certificat",
+        card = SectionCard(self, title="  Informations du Certificat",
                            accent=T.get("GREEN"), cia_keys=["A"])
         card.grid(row=2, column=0, padx=14, pady=6, sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
         self.inspect_box = TerminalBox(c, height=260)
-        self.inspect_box.grid(row=0, column=0, pady=4, sticky="ew")
+        inspect_frame = ctk.CTkFrame(c, fg_color="transparent")
+        inspect_frame.grid(row=0, column=0, pady=4, sticky="ew")
+        inspect_frame.grid_columnconfigure(0, weight=1)
+        self.inspect_box = TerminalBox(inspect_frame, height=260)
+        self.inspect_box.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(inspect_frame, text="Copier", command=lambda: self.inspect_box.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.inspect_box.set_text("Générez ou chargez un certificat pour voir ses informations ici.")
 
     def _pem_section(self):
-        card = SectionCard(self, title="  📄  Contenu PEM Brut",
+        card = SectionCard(self, title="  Contenu PEM Brut",
                            accent=T.get("PURPLE"), cia_keys=["A"])
         card.grid(row=3, column=0, padx=14, pady=(6, 14), sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
         self.pem_box = TerminalBox(c, height=200)
-        self.pem_box.grid(row=0, column=0, pady=4, sticky="ew")
+        pem_frame = ctk.CTkFrame(c, fg_color="transparent")
+        pem_frame.grid(row=0, column=0, pady=4, sticky="ew")
+        pem_frame.grid_columnconfigure(0, weight=1)
+        self.pem_box = TerminalBox(pem_frame, height=200)
+        self.pem_box.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(pem_frame, text="Copier", command=lambda: self.pem_box.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.pem_box.set_text("Le contenu PEM s'affichera ici.")
 
     # ── Handlers ──────────────────────────────────────────────────────

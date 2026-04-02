@@ -1,7 +1,3 @@
-"""
-signature_page.py — RSA-PSS digital signature. All colors 6-char hex.
-"""
-
 import customtkinter as ctk
 import os, threading, time
 from tkinter import filedialog
@@ -62,7 +58,7 @@ class SignaturePage(ctk.CTkScrollableFrame):
                      ).grid(row=1, column=0, padx=12, pady=(0, 10), sticky="w")
 
     def _keys_section(self):
-        card = SectionCard(self, title="  🔑  Gestion des Clés RSA",
+        card = SectionCard(self, title="  Gestion des Clés RSA",
                            accent=T.get("PURPLE"), cia_keys=["A"])
         card.grid(row=1, column=0, padx=14, pady=6, sticky="ew")
         c = card.content
@@ -70,10 +66,10 @@ class SignaturePage(ctk.CTkScrollableFrame):
 
         bf = ctk.CTkFrame(c, fg_color="transparent")
         bf.grid(row=0, column=0, pady=4, sticky="w")
-        for txt, cmd in [("🔑 Générer RSA-2048", self._gen),
-                          ("⬆ Importer clé privée", self._import_priv),
-                          ("⬆ Importer clé publique", self._import_pub),
-                          ("💾 Exporter clés", self._export)]:
+        for txt, cmd in [("Générer RSA-2048", self._gen),
+                          ("Importer clé privée", self._import_priv),
+                          ("Importer clé publique", self._import_pub),
+                          ("Exporter clés", self._export)]:
             _btn(bf, txt, cmd, T.get("PURPLE_BG"), T.get("PURPLE"), T.get("PURPLE_BORDER"), T.get("PURPLE_HOVER"),
                  160, 30).pack(side="left", padx=3)
         ToolTipButton(bf, "PSS").pack(side="left", padx=4)
@@ -86,11 +82,19 @@ class SignaturePage(ctk.CTkScrollableFrame):
         ctk.CTkLabel(c, text="Clé publique (PEM) :", font=ctk.CTkFont(size=13),
                      text_color=T.get("TEXT_DIM")).grid(row=2, column=0, pady=(8, 0), sticky="w")
         self.pub_display = TerminalBox(c, height=110)
-        self.pub_display.grid(row=3, column=0, pady=4, sticky="ew")
+        pub_frame = ctk.CTkFrame(c, fg_color="transparent")
+        pub_frame.grid(row=3, column=0, pady=4, sticky="ew")
+        pub_frame.grid_columnconfigure(0, weight=1)
+        self.pub_display = TerminalBox(pub_frame, height=110)
+        self.pub_display.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(pub_frame, text="Copier", command=lambda: self.pub_display.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.pub_display.set_text("(clé publique s'affichera ici)")
 
     def _sign_section(self):
-        card = SectionCard(self, title="  ✍️   Signer un Message",
+        card = SectionCard(self, title="  Signer un Message",
                            accent=T.get("PURPLE"), cia_keys=["A", "I"])
         card.grid(row=2, column=0, padx=14, pady=6, sticky="ew")
         c = card.content
@@ -102,19 +106,27 @@ class SignaturePage(ctk.CTkScrollableFrame):
                                           border_color=T.get("BORDER"), border_width=1)
         self.sign_input.grid(row=1, column=0, pady=4, sticky="ew")
 
-        _btn(c, "✍️  Signer avec clé privée", self._sign,
+        _btn(c, "Signer avec clé privée", self._sign,
              T.get("PURPLE_BG"), T.get("PURPLE"), T.get("PURPLE_BORDER"), T.get("PURPLE_HOVER"), 200, 34
              ).grid(row=2, column=0, pady=6, sticky="w")
 
         ctk.CTkLabel(c, text="Signature (hex) :", font=ctk.CTkFont(size=13),
                      text_color=T.get("TEXT_DIM")).grid(row=3, column=0, pady=(4, 0), sticky="w")
         self.sign_output = TerminalBox(c, height=80)
-        self.sign_output.grid(row=4, column=0, pady=4, sticky="ew")
+        sign_frame = ctk.CTkFrame(c, fg_color="transparent")
+        sign_frame.grid(row=4, column=0, pady=4, sticky="ew")
+        sign_frame.grid_columnconfigure(0, weight=1)
+        self.sign_output = TerminalBox(sign_frame, height=80)
+        self.sign_output.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(sign_frame, text="Copier", command=lambda: self.sign_output.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.sign_status = StatusBar(c)
         self.sign_status.grid(row=5, column=0, pady=2, sticky="w")
 
     def _verify_section(self):
-        card = SectionCard(self, title="  🔍  Vérifier une Signature",
+        card = SectionCard(self, title="  Vérifier une Signature",
                            accent=T.get("GREEN"), cia_keys=["A", "I"])
         card.grid(row=3, column=0, padx=14, pady=6, sticky="ew")
         c = card.content
@@ -141,35 +153,196 @@ class SignaturePage(ctk.CTkScrollableFrame):
 
         bf = ctk.CTkFrame(c, fg_color="transparent")
         bf.grid(row=3, column=0, pady=4, sticky="w")
-        _btn(bf, "🔍 Vérifier", self._verify, T.get("GREEN_BG"), T.get("GREEN"), T.get("GREEN_BORDER"), T.get("GREEN_HOVER"), 130, 32).pack(side="left", padx=3)
-        _btn(bf, "💥 Tester altération", self._tamper_test, T.get("AMBER_BG"), T.get("AMBER"), T.get("AMBER_BORDER"), T.get("AMBER_HOVER"), 160, 32).pack(side="left", padx=3)
+        _btn(bf, "Vérifier", self._verify, T.get("GREEN_BG"), T.get("GREEN"), T.get("GREEN_BORDER"), T.get("GREEN_HOVER"), 130, 32).pack(side="left", padx=3)
+        _btn(bf, "Tester altération", self._tamper_test, T.get("AMBER_BG"), T.get("AMBER"), T.get("AMBER_BORDER"), T.get("AMBER_HOVER"), 160, 32).pack(side="left", padx=3)
 
         self.verify_result = TerminalBox(c, height=70)
-        self.verify_result.grid(row=4, column=0, pady=4, sticky="ew")
+        verify_frame = ctk.CTkFrame(c, fg_color="transparent")
+        verify_frame.grid(row=4, column=0, pady=4, sticky="ew")
+        verify_frame.grid_columnconfigure(0, weight=1)
+        self.verify_result = TerminalBox(verify_frame, height=70)
+        self.verify_result.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(verify_frame, text="Copier", command=lambda: self.verify_result.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.verify_status = StatusBar(c)
         self.verify_status.grid(row=5, column=0, pady=2, sticky="w")
 
     def _attack_section(self):
-        card = SectionCard(self, title="  🔴  SIMULATION — Falsification Post-Signature",
+        card = SectionCard(self, title="  SIMULATION SIGNATURE — Attaquant",
                            accent=T.get("RED"), cia_keys=["A"])
         card.grid(row=4, column=0, padx=14, pady=(6, 14), sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
+
         ctk.CTkLabel(
             c,
-            text=("Scénario : Alice signe un contrat. Eve modifie le montant APRÈS signature.\n"
-                  "Résultat attendu : la vérification échoue → non-répudiation garantie."),
+            text=("Jouez l'attaquant : tenter de falsifier ou corrompre un message signé en 3 étapes."),
             font=ctk.CTkFont(size=13), text_color=T.get("TEXT_DIM"), wraplength=760, justify="left",
         ).grid(row=0, column=0, pady=(0, 8), sticky="w")
 
-        _btn(c, "🔴 Lancer simulation", self._run_attack,
-             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), 180, 32
-             ).grid(row=1, column=0, pady=4, sticky="w")
+        ctk.CTkLabel(c, text="Message utilisateur :", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).grid(row=1, column=0, sticky="w")
+        self.sim_sig_input = ctk.CTkTextbox(c, height=70, fg_color=T.get("BG_DEEP"), border_color=T.get("BORDER"), border_width=1)
+        self.sim_sig_input.grid(row=2, column=0, pady=4, sticky="ew")
 
-        self.attack_log = TerminalBox(c, height=150)
-        self.attack_log.grid(row=2, column=0, pady=4, sticky="ew")
+        step_frame = ctk.CTkFrame(c, fg_color="transparent")
+        step_frame.grid(row=3, column=0, pady=4, sticky="w")
+        _btn(step_frame, "Étape 1 : Signer", self._sim_sig_step1,
+             T.get("PURPLE_BG"), T.get("PURPLE"), T.get("PURPLE_BORDER"), T.get("PURPLE_HOVER"), 140, 30).pack(side="left", padx=3)
+
+        attack_frame = ctk.CTkFrame(c, fg_color="transparent")
+        attack_frame.grid(row=4, column=0, pady=4, sticky="w")
+        ctk.CTkLabel(attack_frame, text="Attaque :", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")).pack(side="left", padx=(0,4))
+        self.sim_sig_method = ctk.CTkOptionMenu(attack_frame, values=[
+            "Modifier message",
+            "Corrompre signature",
+            "Mauvaise clé privée",
+            "Replay message modifié",
+            "Pas de vérification"
+        ],
+        width=220, fg_color=T.get("BG_HOVER"), button_color=T.get("RED_BORDER"), button_hover_color=T.get("RED_HOVER"),
+        text_color=T.get("TEXT_DIM"), font=ctk.CTkFont(size=12))
+        self.sim_sig_method.set("Modifier message")
+        self.sim_sig_method.pack(side="left", padx=3)
+
+        _btn(attack_frame, "Étape 2 : Attaque", self._sim_sig_step2,
+             T.get("RED_BG"), T.get("RED"), T.get("RED_BORDER"), T.get("RED_HOVER"), 140, 30).pack(side="left", padx=3)
+        _btn(attack_frame, "Nouvelle simulation", self._sim_sig_reset,
+             T.get("BG_HOVER"), T.get("TEXT_DIM"), T.get("BORDER"), T.get("CYAN_HOVER"), 150, 30).pack(side="left", padx=3)
+
+        verify_frame = ctk.CTkFrame(c, fg_color="transparent")
+        verify_frame.grid(row=5, column=0, pady=4, sticky="w")
+        _btn(verify_frame, "Étape 3 : Vérifier", self._sim_sig_step3,
+             T.get("GREEN_BG"), T.get("GREEN"), T.get("GREEN_BORDER"), T.get("GREEN_HOVER"), 130, 30).pack(side="left", padx=3)
+
+        self.sim_sig_status = ctk.CTkLabel(c, text="Statut : prêt.", font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM"))
+        self.sim_sig_status.grid(row=6, column=0, pady=(2,4), sticky="w")
+
+        self.attack_log = TerminalBox(c, height=160)
+        self.attack_log.grid(row=7, column=0, pady=4, sticky="ew")
+
         self.attack_status = StatusBar(c)
-        self.attack_status.grid(row=3, column=0, pady=2, sticky="w")
+        self.attack_status.grid(row=8, column=0, pady=2, sticky="w")
+
+        self._sim_sig_reset()
+
+    def _set_sig_status(self, text, level="info"):
+        color = T.get("TEXT_DIM")
+        if level == "ok":
+            color = T.get("GREEN")
+        elif level == "error":
+            color = T.get("RED")
+        elif level == "warning":
+            color = T.get("AMBER")
+        self.sim_sig_status.configure(text=f"Statut : {text}", text_color=color)
+
+    def _sim_sig_reset(self):
+        self._sim_sig_step = 0
+        self._sim_sig_message = ""
+        self._sim_sig_original = ""
+        self._sim_sig_signature = None
+        self._sim_sig_attacked_message = ""
+        self._sim_sig_attacked_signature = None
+        self._sim_sig_used_key = "good"
+        self.sim_sig_input.delete("0.0", "end")
+        self.attack_log.clear()
+        self._set_sig_status("Prêt pour nouvelle simulation.", "info")
+        self.attack_status.clear()
+
+    def _sim_sig_step1(self):
+        msg = self.sim_sig_input.get("0.0", "end").strip()
+        if not msg:
+            self._set_sig_status("Message vide.", "error")
+            return
+        if not self._priv:
+            self._set_sig_status("Générez ou importez une clé privée avant.", "error")
+            return
+
+        self._sim_sig_message = msg
+        self._sim_sig_original = msg
+        self._sim_sig_signature = self.ds.sign_text(msg, self._priv)
+        self._sim_sig_step = 1
+        self.attack_log.set_text(
+            f"[Étape 1] Message signé\n"
+            f"Message : {msg}\n"
+            f"Signature (hex) : {self.ds.signature_to_hex(self._sim_sig_signature)}")
+        self._set_sig_status("Message signé.", "ok")
+        self.attack_status.set("Étape 1 terminée.", "ok")
+
+    def _sim_sig_step2(self):
+        if self._sim_sig_step < 1:
+            self._set_sig_status("Exécutez l'étape 1 d'abord.", "warning")
+            return
+        mode = self.sim_sig_method.get()
+
+        if mode == "Modifier message":
+            self._sim_sig_attacked_message = self._sim_sig_original[:-1] + ("X" if not self._sim_sig_original.endswith("X") else "Y")
+            self._sim_sig_attacked_signature = self._sim_sig_signature
+            self._sim_sig_used_key = "good"
+            explanation = "Le message est modifié sans signer à nouveau. Vérification doit échouer."
+        elif mode == "Corrompre signature":
+            sigb = bytearray(self._sim_sig_signature)
+            sigb[0] ^= 1
+            self._sim_sig_attacked_signature = bytes(sigb)
+            self._sim_sig_attacked_message = self._sim_sig_original
+            self._sim_sig_used_key = "good"
+            explanation = "La signature est corrompue (un octet). Vérification doit échouer."
+        elif mode == "Mauvaise clé privée":
+            if not self._priv:
+                self._set_sig_status("Clé privée manquante.", "error")
+                return
+            bad_priv, _ = self.asym.generate_key_pair(2048)
+            self._sim_sig_attacked_signature = self.ds.sign_text(self._sim_sig_original, bad_priv)
+            self._sim_sig_attacked_message = self._sim_sig_original
+            self._sim_sig_used_key = "bad"
+            explanation = "Signature générée par une mauvaise clé privée. La clé publique ne doit pas valider."
+        elif mode == "Replay message modifié":
+            self._sim_sig_attacked_message = self._sim_sig_original + " (modifié)"
+            self._sim_sig_attacked_signature = self._sim_sig_signature
+            self._sim_sig_used_key = "good"
+            explanation = "Le même jeton de signature est rejoué avec un message modifié. Vérification doit échouer."
+        elif mode == "Pas de vérification":
+            self._sim_sig_attacked_message = self._sim_sig_original
+            self._sim_sig_attacked_signature = self._sim_sig_signature
+            self._sim_sig_used_key = "good"
+            explanation = "Aucun test effectué. Risque manifeste si on ne vérifie pas."
+        else:
+            self._set_sig_status("Attaque inconnue.", "error")
+            return
+
+        self._sim_sig_step = 2
+        self.attack_log.set_text(
+            f"[Étape 2] Attaque choisie : {mode}\n"
+            f"Message attaqué : {self._sim_sig_attacked_message}\n"
+            f"Signature attaquée : {self.ds.signature_to_hex(self._sim_sig_attacked_signature)}\n"
+            f"Explication : {explanation}")
+        self._set_sig_status("Étape 2 terminée, passez à la vérification.", "ok")
+        self.attack_status.set("Attaque construite.", "info")
+
+    def _sim_sig_step3(self):
+        if self._sim_sig_step < 2:
+            self._set_sig_status("Exécutez d'abord les étapes 1 et 2.", "warning")
+            return
+
+        if self.sim_sig_method.get() == "Pas de vérification":
+            self.attack_log.set_text("[Étape 3] Aucune vérification effectuée. ⚠️ Alerte sécurité")
+            self._set_sig_status("Aucun contrôle effectué.", "warning")
+            self.attack_status.set("⚠️ Le message n'a pas été vérifié.", "warning")
+            return
+
+        try:
+            valid = self.ds.verify_text(self._sim_sig_attacked_message, self._sim_sig_attacked_signature, self._pub)
+            if valid:
+                self.attack_log.set_text("[Étape 3] ✅ SIGNATURE VALIDE - Intégrité OK.")
+                self._set_sig_status("Signature validée.", "ok")
+                self.attack_status.set("✅ Signature valide.", "ok")
+            else:
+                raise ValueError("vérification retourné False")
+        except Exception as e:
+            self.attack_log.set_text(f"[Étape 3] ❌ SIGNATURE INVALIDE - Échec : {e}")
+            self._set_sig_status("Signature invalide.", "error")
+            self.attack_status.set("❌ Signature invalide.", "error")
 
     # ── Handlers ──────────────────────────────────────────────────────
 
@@ -268,39 +441,4 @@ class SignaturePage(ctk.CTkScrollableFrame):
         except Exception as e:
             self.verify_status.set(str(e), "error")
 
-    def _run_attack(self):
-        if not self._priv or not self._pub:
-            self.attack_status.set("Générez d'abord une paire RSA.", "warning"); return
-        self.attack_log.clear()
-        self.attack_status.set("Simulation en cours...", "loading"); self.update()
-        threading.Thread(target=self._attack_thread, daemon=True).start()
-
-    def _attack_thread(self):
-        orig = "Je, soussigné Alice, autorise un virement de 5 000 MAD."
-        tamp = "Je, soussigné Alice, autorise un virement de 50 000 MAD."
-        sig  = self.ds.sign_text(orig, self._priv)
-        time.sleep(0.3)
-        valid = self.ds.verify_text(tamp, sig, self._pub)
-        time.sleep(0.3)
-        lines = [
-            "─" * 62,
-            "  SIMULATION : Falsification post-signature (Alice vs Eve)",
-            "─" * 62,
-            f"\n[ALICE]   Contrat original :\n  {orig}",
-            f"\n[ALICE]   Signature RSA-PSS :\n  {sig.hex()[:48]}...",
-            f"\n[EVE]     Contrat falsifié :\n  {tamp}",
-            "\n[BANQUE]  Vérification de la signature...",
-            f"[BANQUE]  {'✅ VALIDE (inattendu)' if valid else '❌ SIGNATURE INVALIDE — FALSIFICATION DÉTECTÉE !'}",
-        ]
-        if not valid:
-            lines += [
-                "",
-                "GARANTIES DE LA SIGNATURE NUMÉRIQUE :",
-                "  • Toute modification invalide la signature",
-                "  • Eve ne peut pas forger sans la clé privée d'Alice",
-                "  • Non-répudiation : Alice ne peut nier l'original",
-            ]
-        lines.append("\n" + "─" * 62)
-        self.after(0, lambda: self.attack_log.set_text("\n".join(lines)))
-        self.after(0, lambda: self.attack_status.set(
-            "Falsification post-signature correctement détectée.", "ok"))
+    # (Ancienne simulation non interactive remplacée par le nouveau flux étape par étape.)

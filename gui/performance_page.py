@@ -1,7 +1,3 @@
-"""
-performance_page.py — AES vs RSA benchmark. All colors 6-char hex.
-"""
-
 import customtkinter as ctk
 import threading
 
@@ -84,28 +80,44 @@ class PerformancePage(ctk.CTkScrollableFrame):
         self.ctrl_status.grid(row=2, column=0, columnspan=2, pady=2, sticky="w")
 
     def _results_section(self):
-        card = SectionCard(self, title="  📊  Résultats Numériques", accent=T.get("BLUE"))
+        card = SectionCard(self, title="  Résultats Numériques", accent=T.get("BLUE"))
         card.grid(row=2, column=0, padx=14, pady=6, sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
         self.result_box = TerminalBox(c, height=200)
-        self.result_box.grid(row=0, column=0, pady=4, sticky="ew")
+        result_frame = ctk.CTkFrame(c, fg_color="transparent")
+        result_frame.grid(row=0, column=0, pady=4, sticky="ew")
+        result_frame.grid_columnconfigure(0, weight=1)
+        self.result_box = TerminalBox(result_frame, height=200)
+        self.result_box.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(result_frame, text="Copier", command=lambda: self.result_box.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.result_box.set_text("Les résultats s'afficheront ici après le benchmark.")
 
     def _chart_section(self):
         if not MPL: return
-        card = SectionCard(self, title="  📈  Graphique Comparatif", accent=T.get("PURPLE"))
+        card = SectionCard(self, title="  Graphique Comparatif", accent=T.get("PURPLE"))
         card.grid(row=3, column=0, padx=14, pady=6, sticky="ew")
         self._chart_parent = card.content
         self._chart_parent.grid_columnconfigure(0, weight=1)
 
     def _conclusion_section(self):
-        card = SectionCard(self, title="  🎓  Analyse Académique", accent=T.get("GREEN"))
+        card = SectionCard(self, title="  Analyse Académique", accent=T.get("GREEN"))
         card.grid(row=4, column=0, padx=14, pady=(6, 14), sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
         self.concl_box = TerminalBox(c, height=160)
-        self.concl_box.grid(row=0, column=0, pady=4, sticky="ew")
+        concl_frame = ctk.CTkFrame(c, fg_color="transparent")
+        concl_frame.grid(row=0, column=0, pady=4, sticky="ew")
+        concl_frame.grid_columnconfigure(0, weight=1)
+        self.concl_box = TerminalBox(concl_frame, height=160)
+        self.concl_box.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        copy_btn = ctk.CTkButton(concl_frame, text="Copier", command=lambda: self.concl_box.copy_to_clipboard(),
+                                 width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                                 text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER"))
+        copy_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
         self.concl_box.set_text(
             "L'analyse académique s'affichera après le benchmark.\n\n"
             "Points couverts :\n"
@@ -116,7 +128,7 @@ class PerformancePage(ctk.CTkScrollableFrame):
     # ── Run ───────────────────────────────────────────────────────────
 
     def _run(self):
-        self.run_btn.configure(state="disabled", text="⏳ En cours...")
+        self.run_btn.configure(state="disabled", text="En cours...")
         self.ctrl_status.set("AES : 100 itérations · RSA : 5 itérations...", "loading")
         self.update()
         threading.Thread(target=self._thread, daemon=True).start()
