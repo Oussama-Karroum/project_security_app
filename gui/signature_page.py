@@ -262,13 +262,26 @@ class SignaturePage(ctk.CTkScrollableFrame):
         self._sim_sig_message = msg
         self._sim_sig_original = msg
         self._sim_sig_signature = self.ds.sign_text(msg, self._priv)
+        sig_hex = self.ds.signature_to_hex(self._sim_sig_signature)
         self._sim_sig_step = 1
         self.attack_log.set_text(
-            f"[Étape 1] Message signé\n"
-            f"Message : {msg}\n"
-            f"Signature (hex) : {self.ds.signature_to_hex(self._sim_sig_signature)}")
-        self._set_sig_status("Message signé.", "ok")
-        self.attack_status.set("Étape 1 terminée.", "ok")
+            "╔══════════════════════════════════════════════════════════╗\n"
+            "║  ÉTAPE 1 — L'émetteur signe avec sa clé PRIVÉE.         ║\n"
+            "╚══════════════════════════════════════════════════════════╝\n\n"
+            f"Message         : {msg!r}\n"
+            f"Longueur        : {len(msg)} caractères\n\n"
+            f"Processus RSA-PSS :\n"
+            f"  1. SHA-256({msg!r}) → condensé 32 octets\n"
+            f"  2. PSS padding + salt aléatoire\n"
+            f"  3. RSA decrypt(clé_privée, condensé_paddé) → signature\n\n"
+            f"Signature (256 oct / {len(sig_hex)} chars hex) :\n"
+            f"  {sig_hex[:64]}\n"
+            f"  {sig_hex[64:128]}...\n\n"
+            "→ La signature est envoyée avec le message.\n"
+            "→ N'importe qui avec la clé PUBLIQUE peut vérifier."
+        )
+        self._set_sig_status("Message signé avec RSA-PSS/SHA-256.", "ok")
+        self.attack_status.set("Étape 1 terminée — signature produite.", "ok")
 
     def _sim_sig_step2(self):
         if self._sim_sig_step < 1:
@@ -277,17 +290,40 @@ class SignaturePage(ctk.CTkScrollableFrame):
         mode = self.sim_sig_method.get()
 
         if mode == "Modifier message":
-            self._sim_sig_attacked_message = self._sim_sig_original[:-1] + ("X" if not self._sim_sig_original.endswith("X") else "Y")
+            orig_last = self._sim_sig_original[-1] if self._sim_sig_original else "X"
+            new_last = "X" if not self._sim_sig_original.endswith("X") else "Y"
+            self._sim_sig_attacked_message = self._sim_sig_original[:-1] + new_last
             self._sim_sig_attacked_signature = self._sim_sig_signature
             self._sim_sig_used_key = "good"
-            explanation = "Le message est modifié sans signer à nouveau. Vérification doit échouer."
+            explanation = (
+                "TECHNIQUE : L'attaquant intercepte le message, modifie un caractère\n"
+                "mais renvoie la signature ORIGINALE (qu'il ne peut pas régénérer).\n\n"
+                f"Original  : {self._sim_sig_original!r}\n"
+                f"Falsifié  : {self._sim_sig_attacked_message!r}\n"
+                f"Signature : inchangée (l'attaquant ne connaît pas la clé privée)\n\n"
+                "RÉSULTAT ATTENDU → vérification ÉCHOUE.\n"
+                "RSA-PSS vérifie SHA256(message) == décryptage(sig, pub_key)\n"
+                "→ SHA256(msg_modifié) ≠ SHA256(msg_original) → INVALIDE."
+            )
+
         elif mode == "Corrompre signature":
             sigb = bytearray(self._sim_sig_signature)
-            sigb[0] ^= 1
+            original_byte = sigb[0]
+            sigb[0] ^= 0xFF
             self._sim_sig_attacked_signature = bytes(sigb)
             self._sim_sig_attacked_message = self._sim_sig_original
             self._sim_sig_used_key = "good"
-            explanation = "La signature est corrompue (un octet). Vérification doit échouer."
+            explanation = (
+                "TECHNIQUE : L'attaquant modifie 1 octet de la signature.\n"
+                "La signature RSA est un nombre de 256 octets (2048 bits).\n\n"
+                f"Octet[0] original : 0x{original_byte:02X}\n"
+                f"Octet[0] modifié  : 0x{original_byte ^ 0xFF:02X}\n\n"
+                "RSA-PSS vérifie en recalculant RSA_encrypt(sig, pub_key)\n"
+                "→ Le résultat ne correspond plus au hash paddé → INVALIDE.\n\n"
+                "RÉSULTAT ATTENDU → vérification ÉCHOUE systématiquement.\n"
+                "La signature RSA ne tolère aucune modification."
+            )
+
         elif mode == "Mauvaise clé privée":
             if not self._priv:
                 self._set_sig_status("Clé privée manquante.", "error")
@@ -296,53 +332,166 @@ class SignaturePage(ctk.CTkScrollableFrame):
             self._sim_sig_attacked_signature = self.ds.sign_text(self._sim_sig_original, bad_priv)
             self._sim_sig_attacked_message = self._sim_sig_original
             self._sim_sig_used_key = "bad"
-            explanation = "Signature générée par une mauvaise clé privée. La clé publique ne doit pas valider."
+            explanation = (
+                "TECHNIQUE : L'attaquant n'a pas la clé privée du vrai signataire.\n"
+                "Il génère SA PROPRE paire RSA et signe avec sa clé privée.\n\n"
+                "Message      : identique à l'original\n"
+                "Signature    : générée par une AUTRE clé privée (inconnue du destinataire)\n\n"
+                "Vérification : destinataire utilise la clé PUBLIQUE du vrai signataire\n"
+                "→ RSA_encrypt(mauvaise_sig, vraie_pub) ≠ hash_paddé → INVALIDE.\n\n"
+                "RÉSULTAT ATTENDU → échec de vérification.\n"
+                "Cas réel : usurpation d'identité — l'attaquant se fait passer pour l'émetteur."
+            )
+
         elif mode == "Replay message modifié":
-            self._sim_sig_attacked_message = self._sim_sig_original + " (modifié)"
+            self._sim_sig_attacked_message = self._sim_sig_original + " [REPLAY MODIFIÉ]"
             self._sim_sig_attacked_signature = self._sim_sig_signature
             self._sim_sig_used_key = "good"
-            explanation = "Le même jeton de signature est rejoué avec un message modifié. Vérification doit échouer."
+            explanation = (
+                "TECHNIQUE : Replay attack — réutiliser une signature valide sur un message différent.\n\n"
+                f"Message rejoué  : {self._sim_sig_attacked_message!r}\n"
+                f"Signature       : celle du message ORIGINAL\n\n"
+                "Différence avec le replay pur :\n"
+                "→ Ici le message EST modifié. La signature ne correspond plus.\n"
+                "→ Même si l'attaquant rejouait le message EXACT + signature,\n"
+                "  un bon protocole inclut un nonce/timestamp dans le message signé.\n\n"
+                "RÉSULTAT ATTENDU → vérification ÉCHOUE (message modifié)."
+            )
+
         elif mode == "Pas de vérification":
-            self._sim_sig_attacked_message = self._sim_sig_original
+            self._sim_sig_attacked_message = self._sim_sig_original + " [FALSIFIÉ sans contrôle]"
             self._sim_sig_attacked_signature = self._sim_sig_signature
             self._sim_sig_used_key = "good"
-            explanation = "Aucun test effectué. Risque manifeste si on ne vérifie pas."
+            explanation = (
+                "SCÉNARIO CRITIQUE : Le système récepteur n'implémente PAS la vérification.\n\n"
+                "C'est l'erreur la plus courante en production :\n"
+                "  • API qui accepte n'importe quel message sans valider la signature\n"
+                "  • Signature présente mais vérification commentée / désactivée\n"
+                "  • JWT avec algorithme 'none' accepté\n\n"
+                "IMPACT : L'attaquant peut envoyer N'IMPORTE QUEL contenu\n"
+                "comme s'il venait du vrai signataire.\n\n"
+                "MITIGATION : Toujours vérifier avant de traiter. Ne jamais trust sans verify."
+            )
         else:
             self._set_sig_status("Attaque inconnue.", "error")
             return
 
+        sig_hex = self.ds.signature_to_hex(self._sim_sig_attacked_signature)
         self._sim_sig_step = 2
         self.attack_log.set_text(
-            f"[Étape 2] Attaque choisie : {mode}\n"
-            f"Message attaqué : {self._sim_sig_attacked_message}\n"
-            f"Signature attaquée : {self.ds.signature_to_hex(self._sim_sig_attacked_signature)}\n"
-            f"Explication : {explanation}")
-        self._set_sig_status("Étape 2 terminée, passez à la vérification.", "ok")
-        self.attack_status.set("Attaque construite.", "info")
+            "╔══════════════════════════════════════════════════════════╗\n"
+            f"║  ÉTAPE 2 — Attaque : {mode:<35}║\n"
+            "╚══════════════════════════════════════════════════════════╝\n\n"
+            f"{explanation}\n\n"
+            f"─────────────────────────────────────────────────────\n"
+            f"Message transmis : {self._sim_sig_attacked_message!r}\n"
+            f"Signature        : {sig_hex[:64]}..."
+        )
+        self._set_sig_status("Attaque construite — passez à l'étape 3.", "ok")
+        self.attack_status.set("Attaque prête.", "info")
 
     def _sim_sig_step3(self):
         if self._sim_sig_step < 2:
             self._set_sig_status("Exécutez d'abord les étapes 1 et 2.", "warning")
             return
 
-        if self.sim_sig_method.get() == "Pas de vérification":
-            self.attack_log.set_text("[Étape 3] Aucune vérification effectuée. ⚠️ Alerte sécurité")
-            self._set_sig_status("Aucun contrôle effectué.", "warning")
-            self.attack_status.set("⚠️ Le message n'a pas été vérifié.", "warning")
+        mode = self.sim_sig_method.get()
+
+        if mode == "Pas de vérification":
+            self.attack_log.set_text(
+                "╔══════════════════════════════════════════════════════════╗\n"
+                "║  ÉTAPE 3 — VERDICT : Pas de vérification                ║\n"
+                "╚══════════════════════════════════════════════════════════╝\n\n"
+                "⚠️  FAILLE CRITIQUE — Aucune vérification effectuée.\n\n"
+                f"Message reçu       : {self._sim_sig_attacked_message!r}\n"
+                "Signature vérifiée : NON\n"
+                "Résultat           : Message accepté sans contrôle\n\n"
+                "L'attaquant a réussi à faire accepter un faux message.\n\n"
+                "EXPLOITS RÉELS de ce pattern :\n"
+                "  • CVE-2022-21449 (Psychic Signatures) — Java ECDSA bypass\n"
+                "  • JWT 'alg:none' attack — signature ignorée\n"
+                "  • OAuth tokens acceptés sans vérification de signature\n\n"
+                "RÈGLE D'OR : Never trust, always verify."
+            )
+            self._set_sig_status("Attaque réussie — aucun contrôle.", "warning")
+            self.attack_status.set("⚠️  Message falsifié accepté sans vérification.", "warning")
             return
 
         try:
             valid = self.ds.verify_text(self._sim_sig_attacked_message, self._sim_sig_attacked_signature, self._pub)
-            if valid:
-                self.attack_log.set_text("[Étape 3] ✅ SIGNATURE VALIDE - Intégrité OK.")
-                self._set_sig_status("Signature validée.", "ok")
-                self.attack_status.set("✅ Signature valide.", "ok")
-            else:
-                raise ValueError("vérification retourné False")
         except Exception as e:
-            self.attack_log.set_text(f"[Étape 3] ❌ SIGNATURE INVALIDE - Échec : {e}")
-            self._set_sig_status("Signature invalide.", "error")
-            self.attack_status.set("❌ Signature invalide.", "error")
+            valid = False
+            verify_error = str(e)
+        else:
+            verify_error = None
+
+        sig_hex_orig = self.ds.signature_to_hex(self._sim_sig_signature)
+        sig_hex_attack = self.ds.signature_to_hex(self._sim_sig_attacked_signature)
+        sig_changed = sig_hex_orig != sig_hex_attack
+
+        if valid:
+            self.attack_log.set_text(
+                "╔══════════════════════════════════════════════════════════╗\n"
+                "║  ÉTAPE 3 — VERDICT : Signature VALIDE (inattendu)       ║\n"
+                "╚══════════════════════════════════════════════════════════╝\n\n"
+                "✅  La signature est valide — ceci indique que le message n'a pas été\n"
+                "    modifié de façon significative (ou une faille grave existe).\n\n"
+                f"Message vérifié : {self._sim_sig_attacked_message!r}\n"
+                f"Clé utilisée    : {'vraie clé publique' if self._sim_sig_used_key == 'good' else 'mauvaise clé'}\n"
+            )
+            self._set_sig_status("Signature valide.", "ok")
+            self.attack_status.set("✅ Signature valide.", "ok")
+        else:
+            # Construire l'analyse selon le mode
+            if mode == "Modifier message":
+                import hashlib
+                h1 = hashlib.sha256(self._sim_sig_original.encode()).hexdigest()
+                h2 = hashlib.sha256(self._sim_sig_attacked_message.encode()).hexdigest()
+                analysis = (
+                    "RSA-PSS a détecté la falsification :\n"
+                    f"  SHA256(msg_original)   → {h1[:32]}...\n"
+                    f"  SHA256(msg_falsifié)   → {h2[:32]}...\n"
+                    "  Ces deux condensés sont différents → signature invalide.\n\n"
+                    "CONCLUSION : Impossible de modifier un message signé sans invalider la signature."
+                )
+            elif mode == "Corrompre signature":
+                analysis = (
+                    "La signature corrompue ne correspond plus au condensé du message.\n"
+                    f"  Signature originale  : {sig_hex_orig[:32]}...\n"
+                    f"  Signature corrompue  : {sig_hex_attack[:32]}...\n\n"
+                    "RSA-PSS : la vérification décode la signature avec la clé publique\n"
+                    "et compare au hash paddé — la moindre altération = INVALIDE."
+                )
+            elif mode == "Mauvaise clé privée":
+                analysis = (
+                    "La signature générée par une AUTRE clé privée ne peut pas être\n"
+                    "vérifiée avec la clé publique du vrai signataire.\n\n"
+                    "Mathématiquement : RSA_encrypt(RSA_decrypt(msg, bad_priv), good_pub) ≠ msg\n"
+                    "car (bad_priv, good_pub) ne forment pas une paire valide.\n\n"
+                    "→ L'usurpation d'identité est impossible sans la vraie clé privée."
+                )
+            elif mode == "Replay message modifié":
+                analysis = (
+                    "Le replay d'une signature sur un message modifié échoue.\n"
+                    f"  Message signé   : {self._sim_sig_original!r}\n"
+                    f"  Message rejoué  : {self._sim_sig_attacked_message!r}\n\n"
+                    "SHA256 des deux messages est différent → signature invalide.\n\n"
+                    "POUR UN VRAI REPLAY (même message exact) :\n"
+                    "→ La signature serait valide ! La protection anti-replay nécessite\n"
+                    "  un timestamp ou nonce inclus dans le message signé."
+                )
+            else:
+                analysis = f"Erreur de vérification : {verify_error}"
+
+            self.attack_log.set_text(
+                "╔══════════════════════════════════════════════════════════╗\n"
+                f"║  ÉTAPE 3 — VERDICT : {mode:<35}║\n"
+                "╚══════════════════════════════════════════════════════════╝\n\n"
+                "❌  SIGNATURE INVALIDE — Attaque bloquée par RSA-PSS.\n\n"
+                f"{analysis}"
+            )
+            self._set_sig_status("Signature invalide — falsification détectée.", "ok")
+            self.attack_status.set("❌ Signature invalide — RSA-PSS a tenu.", "ok")
 
     # ── Handlers ──────────────────────────────────────────────────────
 

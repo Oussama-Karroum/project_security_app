@@ -289,10 +289,22 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         self._sim_hash_plain = msg
         self._sim_hash_orig = self.hm.hash_text(msg)
         self._sim_hash_step = 1
+        # Découper le hash en blocs visuels de 8 chars
+        h = self._sim_hash_orig
+        h_visual = "  ".join(h[i:i+8] for i in range(0, 64, 8))
         self.hash_compare.set_text(
-            f"Hash original : {self._sim_hash_orig}\n"
-            "(Étape 1 terminée : hash calculé)")
-        self._set_hash_status("Étape 1 terminée, choisissez une attaque.", "ok")
+            "╔══════════════════════════════════════════════════════════╗\n"
+            "║  ÉTAPE 1 — Le destinataire calcule et publie le hash.   ║\n"
+            "╚══════════════════════════════════════════════════════════╝\n\n"
+            f"Message original    : {msg!r}\n"
+            f"Longueur            : {len(msg)} caractères\n"
+            f"Encodage            : UTF-8 → {len(msg.encode('utf-8'))} octets\n\n"
+            f"SHA-256 (64 hex)    : {self._sim_hash_orig}\n"
+            f"Découpage 8-chars   :\n  {h_visual}\n\n"
+            "→ Ce hash est distribué publiquement (ou stocké en base).\n"
+            "→ L'attaquant tente de modifier le message SANS changer le hash."
+        )
+        self._set_hash_status("Étape 1 terminée — hash calculé. Choisissez une attaque.", "ok")
 
     def _sim_hash_step2(self):
         if self._sim_hash_step < 1:
@@ -300,35 +312,97 @@ class IntegrityPage(ctk.CTkScrollableFrame):
             return
         choice = self.sim_hash_method.get()
         base = self._sim_hash_plain
+
         if choice == "Modification d'un caractère":
             if not base:
                 self._set_hash_status("Message vide.", "error"); return
             self._sim_hash_target = base[:-1] + ("X" if not base.endswith("X") else "Y")
-            explanation = "Un caractère change → hash totalement différent."
+            changed_pos = len(base) - 1
+            orig_char = base[-1]
+            new_char = "X" if not base.endswith("X") else "Y"
+            technique = (
+                f"Modification : position {changed_pos} : {orig_char!r} → {new_char!r}\n"
+                "Impact visuel : presque identique à l'original — l'œil humain ne voit rien.\n"
+                "Impact cryptographique : 100% du hash change (effet avalanche).\n\n"
+                "Cas réel : falsification d'un montant, d'un nom, d'une date dans un document."
+            )
+
         elif choice == "Espace invisible":
             self._sim_hash_target = base + "\u200b"
-            explanation = "Un caractère invisible ajouté → hash différent, invisible à l'oeil."
+            technique = (
+                "Ajout d'un ZERO WIDTH SPACE (U+200B) en fin de message.\n"
+                "Invisible à l'affichage, indétectable à l'œil nu.\n"
+                "Utilisé pour contourner des filtres naïfs de comparaison de texte.\n\n"
+                "Cas réel : phishing — 'paypal.com​' ≠ 'paypal.com' (caractère caché).\n"
+                "SHA-256 détecte la différence — comparaison visuelle ne suffit pas."
+            )
+
         elif choice == "Changement de casse":
             self._sim_hash_target = base.swapcase()
-            explanation = "Casse modifiée en un seul caractère → hash différent."
+            diffs = [(i, base[i], base.swapcase()[i]) for i in range(len(base)) if base[i] != base.swapcase()[i]]
+            diff_str = ", ".join(f"pos {i}: {o!r}→{n!r}" for i, o, n in diffs[:5])
+            technique = (
+                f"Inversion de casse sur {len(diffs)} caractère(s) : {diff_str}\n"
+                "Cas réel : 'Virement VALIDE' vs 'virement valide' — same signification,\n"
+                "hash totalement différent.\n\n"
+                "Pourquoi c'est important : certains systèmes comparent les hashes\n"
+                "sans normaliser la casse — l'attaquant peut bypasser la vérification."
+            )
+
         elif choice == "Suppression d'un caractère":
             self._sim_hash_target = base[:-1] if len(base) > 1 else ""
-            explanation = "Suppression d'un caractère → hash différent."
+            technique = (
+                f"Suppression du dernier caractère : {base[-1]!r}\n"
+                f"Longueur : {len(base)} → {len(self._sim_hash_target)} caractères\n\n"
+                "Cas réel : troncature malveillante d'un message signé.\n"
+                "Ex: 'Approuvé pour 1000€' → 'Approuvé pour 1000'\n"
+                "SHA-256 détecte immédiatement : hashes complètement différents."
+            )
+
         elif choice == "Collision impossible SHA-256":
-            self._sim_hash_target = self._sim_hash_plain
-            explanation = "SHA-256 est conçu sans collisions pratiques. Ce truc est théorique."
+            self._sim_hash_target = self._sim_hash_plain  # même message = même hash
+            technique = (
+                "CONTEXTE : Une collision = trouver M2 ≠ M1 tel que SHA256(M1) = SHA256(M2)\n\n"
+                "SHA-256 produit 2^256 ≈ 10^77 valeurs possibles.\n"
+                "Meilleure attaque connue (Birthday) : ~2^128 essais.\n"
+                "Puissance actuelle : ~10^21 hash/s (réseau Bitcoin entier)\n"
+                "→ Temps estimé : 10^18 ans. L'univers a 10^10 ans.\n\n"
+                "Collision SHA-1 (2017, Google SHAttered) : 110 GPU-années.\n"
+                "SHA-256 : aucune collision connue. Le standard NIST jusqu'en 2030+.\n\n"
+                "DÉMONSTRATION : ici même message → même hash (pas de collision)."
+            )
+
         elif choice == "Length extension (concept)":
-            self._sim_hash_target = self._sim_hash_plain + "added"
-            explanation = "SHA-256 sécurisé ne permet pas d'attaque de length extension sans clé secret."
+            self._sim_hash_target = self._sim_hash_plain + "ajout_attaquant"
+            technique = (
+                "ATTAQUE LENGTH EXTENSION (contre SHA-1/SHA-256 naïf) :\n\n"
+                "Si un système calcule MAC = SHA256(secret || message), un attaquant\n"
+                "qui connaît SHA256(secret || message) peut calculer\n"
+                "SHA256(secret || message || padding || message_additionnel)\n"
+                "SANS connaître 'secret' !\n\n"
+                "Exploitable sur : SHA-256 en mode Merkle-Damgård pur\n"
+                "MITIGATION : Utiliser HMAC-SHA256 (structure H(K XOR opad || H(K XOR ipad || msg)))\n"
+                "HMAC est immune à cette attaque par construction.\n\n"
+                "Ici : 'ajout_attaquant' est concaténé. SHA-256 change."
+            )
         else:
             self._set_hash_status("Attaque inconnue.", "error"); return
 
+        new_hash = self.hm.hash_text(self._sim_hash_target)
+        diff_chars = sum(a != b for a, b in zip(self._sim_hash_orig, new_hash))
+
         self._sim_hash_step = 2
         self.hash_compare.set_text(
-            f"Hash ciblé ({choice}) : {self.hm.hash_text(self._sim_hash_target)}\n"
-            f"Message modifié : {repr(self._sim_hash_target)}\n"
-            f"Explication : {explanation}")
-        self._set_hash_status("Étape 2 terminée, validez à l'étape 3.", "ok")
+            "╔══════════════════════════════════════════════════════════╗\n"
+            f"║  ÉTAPE 2 — Attaque : {choice:<35}║\n"
+            "╚══════════════════════════════════════════════════════════╝\n\n"
+            f"{technique}\n\n"
+            f"─────────────────────────────────────────────────────\n"
+            f"Message modifié : {self._sim_hash_target!r}\n"
+            f"Hash modifié    : {new_hash}\n"
+            f"Chars différents: {diff_chars}/64 ({diff_chars/64*100:.1f}% du hash)"
+        )
+        self._set_hash_status("Étape 2 terminée — passez à l'étape 3 pour le verdict.", "ok")
 
     def _sim_hash_step3(self):
         if self._sim_hash_step < 2:
@@ -337,27 +411,54 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         hash2 = self.hm.hash_text(self._sim_hash_target)
         equivalence = self._sim_hash_orig == hash2
         same_text = self._sim_hash_plain == self._sim_hash_target
+        diff = sum(a != b for a, b in zip(self._sim_hash_orig, hash2))
+        choice = self.sim_hash_method.get()
 
-        if equivalence and not same_text:
-            badge = "🟢 NON DÉTECTÉ (danger)"
-            level = "warning"
-            logic = "Même hash pour deux messages différents : collision (très improbable SHA-256)."
-        elif equivalence and same_text:
-            badge = "🟢 IDENTIQUE (même contenu)"
+        if equivalence and same_text:
+            badge = "🟢 MÊME MESSAGE — Intégrité confirmée"
             level = "ok"
-            logic = "Le message n'a pas changé."
+            verdict = (
+                "Le message n'a pas été modifié.\n"
+                "Les hashes sont identiques : c'est le comportement attendu.\n"
+                "Démonstration : SHA-256 est déterministe."
+            )
+        elif equivalence and not same_text:
+            badge = "🔴 COLLISION DÉTECTÉE — DANGER CRITIQUE"
+            level = "error"
+            verdict = (
+                "Deux messages différents produisent le même hash !\n"
+                "Cela indiquerait une faiblesse fondamentale de SHA-256.\n"
+                "→ En pratique IMPOSSIBLE avec SHA-256 — cela ne devrait jamais arriver."
+            )
         else:
-            badge = "🔴 DÉTECTÉ"
+            badge = "✅ MODIFICATION DÉTECTÉE — SHA-256 a fonctionné"
             level = "ok"
-            logic = "Le hash est différent, modification détectée (effet avalanche)."
+            verdict = (
+                f"Différence : {diff}/64 caractères hex modifiés ({diff/64*100:.1f}%)\n"
+                "L'effet avalanche garantit qu'aucune modification ne passe inaperçue.\n\n"
+                "LEÇON : Un attaquant NE PEUT PAS modifier le message\n"
+                "et produire le même hash SHA-256.\n"
+                "→ Si vous vérifiez le hash, vous êtes protégé contre la falsification."
+            )
 
-        diff = sum(a != b for a, b in zip(self._sim_hash_orig, hash2)) + abs(len(self._sim_hash_orig) - len(hash2))
-        self.hash_result.set(f"{badge} • Différence octets : {diff}")
+        # Aligner les hashes pour la comparaison visuelle
+        h1 = self._sim_hash_orig
+        h2 = hash2
+        diff_visual = "".join("^" if a != b else " " for a, b in zip(h1, h2))
+
+        self.hash_result.set(f"{badge}  •  Δ = {diff}/64 chars")
         self.hash_compare.set_text(
-            f"Hash original : {self._sim_hash_orig}\n"
-            f"Hash modifié  : {hash2}\n"
-            f"{logic}")
-        self._set_hash_status("Étape 3 terminée.", level)
+            "╔══════════════════════════════════════════════════════════╗\n"
+            "║  ÉTAPE 3 — VERDICT FINAL                                ║\n"
+            "╚══════════════════════════════════════════════════════════╝\n\n"
+            f"Message original : {self._sim_hash_plain!r}\n"
+            f"Message modifié  : {self._sim_hash_target!r}\n\n"
+            f"Hash original    : {h1}\n"
+            f"Hash modifié     : {h2}\n"
+            f"Différences      : {diff_visual}\n\n"
+            f"{verdict}"
+        )
+        self._set_hash_status(f"Étape 3 terminée — {diff} char(s) différent(s).", level)
 
     # ── Live hash ─────────────────────────────────────────────────────
 
