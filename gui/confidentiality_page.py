@@ -44,6 +44,7 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         self._aes_section()
         self._rsa_section()
         self._hybrid_section()
+        self._kdf_section()
         self._attack_section()
 
     # ── Header ────────────────────────────────────────────────────────
@@ -304,12 +305,106 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         self.hybrid_status = StatusBar(c)
         self.hybrid_status.grid(row=14, column=0, pady=2, sticky="w")
 
+    # ── KDF Section ───────────────────────────────────────────────────
+
+    def _kdf_section(self):
+        card = SectionCard(self, title="  KDF — Dérivation de Clé (PBKDF2 vs Naïve)",
+                           accent=T.get("AMBER"), cia_keys=["C"])
+        card.grid(row=4, column=0, padx=14, pady=6, sticky="ew")
+        c = card.content
+        c.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(c, text="Mot de passe :", font=ctk.CTkFont(size=13),
+                     text_color=T.get("TEXT_DIM")).grid(row=0, column=0, padx=(0, 6), pady=6, sticky="w")
+        self.kdf_password = ctk.CTkEntry(c, font=ctk.CTkFont(family="Courier", size=13),
+                                          fg_color=T.get("BG_DEEP"), border_color=T.get("BORDER"),
+                                          text_color=T.get("TEXT_CODE"), placeholder_text="Entrez un mot de passe")
+        self.kdf_password.grid(row=0, column=1, padx=4, pady=6, sticky="ew")
+        self.kdf_password.insert(0, "password123")
+
+        iter_frame = ctk.CTkFrame(c, fg_color="transparent")
+        iter_frame.grid(row=1, column=0, columnspan=2, pady=4, sticky="w")
+        ctk.CTkLabel(iter_frame, text="Itérations PBKDF2 :", font=ctk.CTkFont(size=12),
+                     text_color=T.get("TEXT_DIM")).pack(side="left", padx=(0, 4))
+        self.kdf_iter = ctk.CTkOptionMenu(iter_frame, values=["1 000", "10 000", "100 000", "310 000", "600 000"],
+                                           width=120, fg_color=T.get("BG_HOVER"),
+                                           button_color=T.get("AMBER_BORDER"), button_hover_color=T.get("AMBER_HOVER"),
+                                           text_color=T.get("TEXT_DIM"), font=ctk.CTkFont(size=12))
+        self.kdf_iter.set("310 000")
+        self.kdf_iter.pack(side="left", padx=3)
+        _btn(iter_frame, "Comparer KDF", self._kdf_compare,
+             T.get("AMBER_BG"), T.get("AMBER"), T.get("AMBER_BORDER"), T.get("AMBER_HOVER"), 140, 30).pack(side="left", padx=8)
+
+        kdf_frame = ctk.CTkFrame(c, fg_color="transparent")
+        kdf_frame.grid(row=2, column=0, columnspan=2, pady=4, sticky="ew")
+        kdf_frame.grid_columnconfigure(0, weight=1)
+        self.kdf_log = TerminalBox(kdf_frame, height=140)
+        self.kdf_log.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        ctk.CTkButton(kdf_frame, text="Copier", command=lambda: self.kdf_log.copy_to_clipboard(),
+                      width=70, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
+                      text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER")
+                      ).grid(row=0, column=1, padx=(4, 0), pady=0, sticky="e")
+        self.kdf_status = StatusBar(c)
+        self.kdf_status.grid(row=3, column=0, columnspan=2, pady=2, sticky="w")
+
+        self.kdf_log.set_text(
+            "PBKDF2 vs Dérivation naïve\n\n"
+            "  Clé naïve  : MD5(password)×2          → < 0.001ms → attaquable en millisecondes\n"
+            "  PBKDF2     : SHA256 × N itérations     → ~100ms    → 100 000× plus résistant\n\n"
+            "→ Entrez un mot de passe et cliquez 'Comparer KDF'."
+        )
+
+    def _kdf_compare(self):
+        import hashlib, time as _t, os as _os
+        password = self.kdf_password.get().strip()
+        if not password:
+            self.kdf_status.set("Entrez un mot de passe.", "error")
+            return
+        iterations = int(self.kdf_iter.get().replace(" ", ""))
+        salt = _os.urandom(16)
+
+        t0 = _t.perf_counter()
+        naive_key = hashlib.md5(password.encode()).digest()
+        naive_key = naive_key + naive_key
+        t_naive = (_t.perf_counter() - t0) * 1000
+
+        t0 = _t.perf_counter()
+        pbkdf2_key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
+        t_pbkdf2 = (_t.perf_counter() - t0) * 1000
+
+        speedup = t_pbkdf2 / t_naive if t_naive > 0 else 0
+
+        COMMON = ["password", "123456", "azerty", "admin", "qwerty",
+                  "letmein", "iloveyou", "welcome", "password123", password]
+        found = password.lower() in [w.lower() for w in COMMON[:-1]]
+
+        self.kdf_log.set_text(
+            f"Mot de passe : {password!r}  {'⚠️  DANS DICTIONNAIRE' if found else '(non trouvé dans top 9)'}\n\n"
+            "── MÉTHODE NAÏVE : MD5(password) × 2 ────────────────\n"
+            f"  Clé obtenue : {naive_key.hex()}\n"
+            f"  Temps       : {t_naive:.4f} ms\n"
+            f"  Sécurité    : TRÈS FAIBLE — dictionnaire trivial\n\n"
+            f"── PBKDF2-HMAC-SHA256 ({iterations:,} itérations) ────────\n"
+            f"  Sel (aléat) : {salt.hex()}\n"
+            f"  Clé obtenue : {pbkdf2_key.hex()}\n"
+            f"  Temps       : {t_pbkdf2:.1f} ms\n"
+            f"  Sécurité    : FORTE — {speedup:.0f}× plus coûteux à brute-forcer\n\n"
+            f"CONCLUSION : Pour tester 1 million de mots de passe…\n"
+            f"  Méthode naïve : {t_naive * 1_000_000 / 1000:.0f} secondes\n"
+            f"  PBKDF2        : {t_pbkdf2 * 1_000_000 / 1000 / 3600:.1f} heures\n\n"
+            "RECOMMANDATIONS NIST SP800-132 :\n"
+            "  • Min 310 000 itérations PBKDF2-HMAC-SHA256\n"
+            "  • Argon2id (gagnant PHC) pour nouveaux projets\n"
+            "  • Sel unique et aléatoire par utilisateur (jamais fixe)"
+        )
+        self.kdf_status.set(f"PBKDF2 {iterations:,} iter = {speedup:.0f}× plus résistant que MD5 naïf.", "ok")
+
     # ── Attack Section ────────────────────────────────────────────────
 
     def _attack_section(self):
         card = SectionCard(self, title="  SIMULATION D'ATTAQUE INTERACTIVE",
                            accent=T.get("RED"), cia_keys=["C"])
-        card.grid(row=4, column=0, padx=14, pady=(6, 14), sticky="ew")
+        card.grid(row=5, column=0, padx=14, pady=(6, 14), sticky="ew")
         c = card.content
         c.grid_columnconfigure(0, weight=1)
 
@@ -342,9 +437,10 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
                 "Corruption ciphertext",
                 "Replay",
                 "IV reuse (même IV)",
-                "Bit flipping"
+                "Bit flipping",
+                "Clé faible (dérivation naïve)",
             ],
-            width=180,
+            width=210,
             fg_color=T.get("BG_HOVER"),
             button_color=T.get("RED_BORDER"),
             button_hover_color=T.get("RED_HOVER"),
@@ -356,10 +452,11 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
 
         ToolTipButton(attack_frame, "Attaque",
                       custom_text=("Mauvaise clé : décryptage avec clé incorrecte.\n"
-                                   "Corruption : ciphertext altéré, décryptage incorrect.\n"
+                                   "Corruption : ciphertext altéré — visualisation blocs AES.\n"
                                    "Replay : réutilisation d'un ciphertext valide.\n"
-                                   "IV reuse : revente du même IV (faillite du non-répétabilité).\n"
-                                   "Bit flipping : altère le message de façon ciblée." )
+                                   "IV reuse : même IV → fuite cryptanalytique.\n"
+                                   "Bit flipping : altère un octet de façon ciblée.\n"
+                                   "Clé faible : MD5(password) vs PBKDF2 — dérivation sécurisée.")
                       ).pack(side="left", padx=8)
 
         _btn(attack_frame, "Étape 2 : Lancer l'attaque", self._sim_step2,
@@ -386,8 +483,14 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
                       width=80, height=30, fg_color=T.get("BG_HOVER"), hover_color=T.get("CYAN_HOVER"),
                       text_color=T.get("TEXT_DIM"), border_width=1, border_color=T.get("BORDER")).grid(row=0, column=1, padx=(6,0), sticky="e")
 
+        ctk.CTkLabel(c, text="Propagation de l erreur — blocs AES-CBC :",
+                     font=ctk.CTkFont(size=12), text_color=T.get("TEXT_DIM")
+                     ).grid(row=9, column=0, pady=(4, 0), sticky="w")
+        self.cbc_canvas = tk.Canvas(c, height=85, bg=T.get("BG_DEEP"), highlightthickness=0)
+        self.cbc_canvas.grid(row=10, column=0, pady=(2, 4), sticky="ew")
+
         self.attack_status = StatusBar(c)
-        self.attack_status.grid(row=9, column=0, pady=2, sticky="w")
+        self.attack_status.grid(row=11, column=0, pady=2, sticky="w")
 
         self._sim_reset()
 
@@ -653,15 +756,17 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
         self.sim_info.configure(text=f"Statut : {text}", text_color=color)
 
     def _sim_reset(self):
-        self._sim_step = 0
-        self._sim_plain = ""
-        self._sim_key = None
-        self._sim_cipher = None
+        self._sim_step           = 0
+        self._sim_plain          = ""
+        self._sim_key            = None
+        self._sim_cipher         = None
         self._sim_cipher_attacked = None
-        self._sim_attack_mode = None
-        self._sim_attacker_key = None
+        self._sim_attack_mode    = None
+        self._sim_attacker_key   = None
+        self._sim_pbkdf2_key     = None
         self.sim_msg.delete("0.0", "end")
         self.attack_log.clear()
+        self.cbc_canvas.delete("all")
         self.sim_info.configure(text="Statut : en attente...", text_color=T.get("TEXT_DIM"))
         self.attack_status.clear()
 
@@ -827,6 +932,42 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
                     "RÉSULTAT ATTENDU → déchiffrement RÉUSSIT mais 1er caractère corrompu.\n"
                     "Cas réel : un attaquant peut forger 'admin=true' depuis 'admin=false'."
                 )
+
+            elif mode == "Clé faible (dérivation naïve)":
+                import hashlib, time as _t
+                weak_password = "password123"
+                naive_key  = hashlib.md5(weak_password.encode()).digest()
+                naive_key  = naive_key + naive_key
+                pbkdf2_key, salt = self.sym.key_from_password(weak_password, iterations=310_000)
+
+                # Re-encrypt plaintext with naive key to simulate victim using weak key
+                victim_cipher = self.sym.encrypt_text(self._sim_plain, naive_key)
+
+                self._sim_attacker_key   = naive_key
+                self._sim_cipher_attacked = victim_cipher
+                self._sim_pbkdf2_key     = pbkdf2_key
+
+                DICTIONARY = [
+                    "password", "123456", "azerty", "admin",
+                    "qwerty", "letmein", "iloveyou", "welcome",
+                    "password123", "monkey",
+                ]
+                found_at = DICTIONARY.index(weak_password) + 1
+
+                explanation = (
+                    "SCÉNARIO : la victime chiffre avec MD5('password123') comme clé.\n\n"
+                    f"Mot de passe victime  : '{weak_password}'\n"
+                    f"Clé dérivée (MD5×2)   : {naive_key.hex()}\n"
+                    f"  → MD5 = 0.001ms → brute-force trivial.\n\n"
+                    f"DICTIONNAIRE ({len(DICTIONARY)} mots courants) :\n"
+                    f"  {', '.join(DICTIONARY)}\n\n"
+                    f"  Attaquant trouve la clé à l'essai #{found_at}/{len(DICTIONARY)} — < 1ms total.\n\n"
+                    "SOLUTION — PBKDF2-HMAC-SHA256 :\n"
+                    f"  {310_000:,} itérations × SHA-256\n"
+                    f"  Sel aléatoire  : {salt.hex()}\n"
+                    f"  Clé PBKDF2     : {pbkdf2_key.hex()[:32]}...\n"
+                    "  Coût par essai : ~100ms → dictionnaire 10 000× plus lent."
+                )
             else:
                 raise ValueError("Type d'attaque non supporté.")
 
@@ -841,9 +982,85 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
             )
             self._set_sim_info("Étape 2 terminée — attaque préparée. Cliquez Étape 3.", "ok")
             self.attack_status.set("Attaque construite. Passez à l'étape 3.", "info")
+            self._draw_cbc_blocks(mode)
         except Exception as e:
             self._set_sim_info(str(e), "error")
             self.attack_status.set(str(e), "error")
+
+    def _draw_cbc_blocks(self, mode: str):
+        """Draw AES-CBC block diagram showing which blocks are affected by the attack."""
+        cv = self.cbc_canvas
+        cv.delete("all")
+        self.update_idletasks()
+        W = cv.winfo_width() or 760
+
+        ct = self._sim_cipher_attacked or self._sim_cipher
+        n_blocks = max(1, (len(ct) - self.sym.IV_SIZE + 15) // 16)
+        n_show   = min(n_blocks, 6)
+
+        bw, bh, gap, y0 = 90, 36, 12, 24
+        total_w = n_show * bw + (n_show - 1) * gap + 90
+        x_start = max(10, (W - total_w) // 2)
+
+        colors = {
+            "ok":        ("#1D9E75", "#E1F5EE"),
+            "corrupted": ("#E24B4A", "#FCEBEB"),
+            "partial":   ("#BA7517", "#FAEEDA"),
+            "replay":    ("#7F77DD", "#EEEDFE"),
+            "info":      ("#378ADD", "#E6F1FB"),
+        }
+
+        def block_state(i):
+            if mode == "Mauvaise clé (1 bit)":
+                return "corrupted"
+            elif mode == "Corruption ciphertext":
+                if i == 0:
+                    return "corrupted"
+                elif i == 1:
+                    return "partial"
+                return "ok"
+            elif mode == "Replay":
+                return "replay"
+            elif mode == "IV reuse (même IV)":
+                return "partial" if i == 0 else "ok"
+            elif mode == "Bit flipping":
+                return "partial" if i == 0 else "ok"
+            elif mode == "Clé faible (dérivation naïve)":
+                return "info"
+            return "ok"
+
+        labels = {
+            "ok":        "OK",
+            "corrupted": "CORROMPU",
+            "partial":   "PARTIEL",
+            "replay":    "REJOUÉ",
+            "info":      "CLÉ FAIBLE",
+        }
+
+        for i in range(n_show):
+            x = x_start + i * (bw + gap)
+            state = block_state(i)
+            fg, bg = colors[state]
+            cv.create_rectangle(x, y0, x + bw, y0 + bh, fill=bg, outline=fg, width=2)
+            cv.create_text(x + bw // 2, y0 + 10, text=f"Bloc {i+1}", font=("Courier", 8, "bold"), fill=fg)
+            cv.create_text(x + bw // 2, y0 + 24, text=labels[state], font=("Courier", 8), fill=fg)
+            if i < n_show - 1:
+                ax = x + bw + 2
+                ay = y0 + bh // 2
+                cv.create_line(ax, ay, ax + gap - 2, ay, fill="#888780", width=1, arrow="last")
+
+        if n_blocks > n_show:
+            x_more = x_start + n_show * (bw + gap)
+            cv.create_text(x_more + 10, y0 + bh // 2, text=f"+ {n_blocks - n_show} blocs",
+                           font=("Courier", 9), fill="#888780", anchor="w")
+
+        legend_y = y0 + bh + 12
+        legend_x = x_start
+        for state, (fg, bg) in colors.items():
+            if state in ("ok", "corrupted", "partial"):
+                cv.create_rectangle(legend_x, legend_y, legend_x + 12, legend_y + 10, fill=bg, outline=fg, width=1)
+                cv.create_text(legend_x + 16, legend_y + 5, text=labels[state], font=("Courier", 8), fill=fg, anchor="w")
+                legend_x += 90
 
     def _sim_step3(self):
         try:
@@ -853,7 +1070,7 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
             mode = self._sim_attack_mode
             ct = self._sim_cipher_attacked
 
-            if mode == "Mauvaise clé (1 bit)":
+            if mode in ("Mauvaise clé (1 bit)", "Clé faible (dérivation naïve)"):
                 key = self._sim_attacker_key
             else:
                 key = self._sim_key
@@ -964,6 +1181,29 @@ class ConfidentialityPage(ctk.CTkScrollableFrame):
                 else:
                     verdict = f"Erreur padding (IV flip a corrompu le padding)"
                     analysis = f"Erreur : {dec_error}\nEssayez avec un message plus long (plusieurs blocs)."
+                    ok = True
+            elif mode == "Clé faible (dérivation naïve)":
+                pbkdf2_key = getattr(self, "_sim_pbkdf2_key", b"")
+                naive_key  = self._sim_attacker_key
+                if dec_success:
+                    verdict  = "⚠️  FAILLE : mot de passe devinable par dictionnaire !"
+                    analysis = (
+                        f"Déchiffré avec clé naïve MD5('password123') : {decrypted!r}\n\n"
+                        f"Clé naïve (MD5×2)       : {naive_key.hex()}\n"
+                        f"Clé PBKDF2 sécurisée    : {pbkdf2_key.hex()[:32]}...\n\n"
+                        "COMPARAISON des coûts de brute-force :\n"
+                        "  Clé naïve (MD5)    → < 1ms  par essai → dictionnaire trivial\n"
+                        "  PBKDF2 310k iter   → ~100ms par essai → 10 000× plus résistant\n\n"
+                        "MITIGATION :\n"
+                        "  1. PBKDF2-HMAC-SHA256 (min 310 000 itérations) — NIST SP800-132\n"
+                        "  2. bcrypt ou Argon2id pour encore plus de résistance\n"
+                        "  3. Sel aléatoire unique par utilisateur — anti-rainbow tables\n"
+                        "  4. Ne JAMAIS utiliser MD5/SHA1 directement pour dériver une clé"
+                    )
+                    ok = False
+                else:
+                    verdict  = "Erreur de déchiffrement (clé incorrecte — normal)"
+                    analysis = f"Erreur : {dec_error}"
                     ok = True
             else:
                 verdict = "Mode inconnu"
